@@ -545,29 +545,22 @@ export default function ChatScreen({ navigation, route }) {
       formData.append("receiverId", String(peerId));
 
       if (trimmed) formData.append("content", trimmed);
-
       attachments.forEach((file, index) => {
         const name = file.name || `file-${Date.now()}-${index}`;
         const uri = normalizeFileUriForForm(file.uri);
-
-        let type = guessMimeFromName(name);
-
-        // FORCE correct Excel MIME
+        let type = guessMimeFromName(name) || "application/octet-stream";
         if (name.endsWith(".xls")) {
           type = "application/vnd.ms-excel";
-        }
-        if (name.endsWith(".xlsx")) {
+        } else if (name.endsWith(".xlsx")) {
           type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         }
-
-        console.log("📤 UPLOADING FILE:", { name, uri, type });
-
         formData.append("files", {
           uri,
           name,
           type,
-        });
+        }); 
       });
+
 
 
       const auth = await buildAuthHeaders(ctx);
