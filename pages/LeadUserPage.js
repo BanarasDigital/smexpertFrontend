@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { DataContext } from "../context";
-
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
 const NOTE_TYPES = ["general", "follow_up", "meeting", "call", "email", "important"];
 const TYPE_LABEL = (t) => t.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 const NOTE_STATUS = [
@@ -108,46 +109,106 @@ export default function LeadUserPage() {
     }
   };
 
-const handleAddOrEditNote = async () => {
-  if (!noteContent.trim()) return alert("Please write note content.");
+  const handleAddOrEditNote = async () => {
+    if (!noteContent.trim()) return alert("Please write note content.");
 
-  let res;
+    let res;
 
-  if (!editMode) {
-    res = await apiPost(`/lead/${activeLead._id}/notes`, {
-      content: noteContent.trim(),
-      type: noteType,
-    });
-  } else {
-    res = await apiPut(
-      `/lead/${activeLead._id}/notes/${editNoteId}`,
-      {
+    if (!editMode) {
+      res = await apiPost(`/lead/${activeLead._id}/notes`, {
         content: noteContent.trim(),
         type: noteType,
-      }
-    );
-  }
+      });
+    } else {
+      res = await apiPut(
+        `/lead/${activeLead._id}/notes/${editNoteId}`,
+        {
+          content: noteContent.trim(),
+          type: noteType,
+        }
+      );
+    }
 
-  if (res?.success) {
-    await apiPut(`/lead/${activeLead._id}/status`, {
-      status: noteStatus,
+    if (res?.success) {
+      await apiPut(`/lead/${activeLead._id}/status`, {
+        status: noteStatus,
+      });
+
+      await refreshLeadNotes(activeLead._id);
+      await fetchLeads();
+
+      closeNotesModal();
+    }
+  };
+  const deleteNote = async (leadId, noteId) => {
+    const res = await apiDelete(`/lead/${leadId}/notes/${noteId}`);
+
+    if (res?.success) {
+      await refreshLeadNotes(leadId);
+    }
+  };
+const handleImport = async () => {
+  try {
+    const pick = await DocumentPicker.getDocumentAsync({
+      type: [
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+      ],
+      copyToCacheDirectory: true,
     });
 
-    await refreshLeadNotes(activeLead._id);
+    if (pick.canceled) return;
+
+    const file = pick.assets?.[0];
+    if (!file) {
+      Alert.alert("Error", "No file selected.");
+      return;
+    }
+
+    // FORM DATA
+    const formData = new FormData();
+    formData.append("file", {
+      uri: file.uri,
+      name: file.name || "import.xlsx",
+      type: file.mimeType || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    // TOKEN
+    const freshToken = await checkSession();
+    if (!freshToken) {
+      Alert.alert("Session expired", "Please login again.");
+      return;
+    }
+
+    // 🌟 IMPORTANT — PASS BRANCH + USER
+    const importUrl = `${API_BASE_URL}/lead/import/${user.branch}/${user._id}`;
+
+    const res = await fetch(importUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${freshToken}`,
+        Accept: "application/json",
+      },
+      body: formData,
+    });
+
+    const json = await res.json();
+
+    if (!json.success) {
+      Alert.alert("Import Failed", `Imported: ${json.imported}\nFailed: ${json.failed}`);
+      return;
+    }
+
+    Alert.alert("Import Complete", `Imported: ${json.imported}\nFailed: ${json.failed}`);
+
+    // REFRESH TABLE
     await fetchLeads();
 
-    closeNotesModal();
+  } catch (err) {
+    console.log("IMPORT ERROR:", err);
+    Alert.alert("Error", "Failed to import leads.");
   }
 };
-const deleteNote = async (leadId, noteId) => {
-  const res = await apiDelete(`/lead/${leadId}/notes/${noteId}`);
-
-  if (res?.success) {
-    await refreshLeadNotes(leadId);
-  }
-};
-
-
 
 
   const userName = user?.name || user?.fullName || "User";
@@ -177,14 +238,25 @@ const deleteNote = async (leadId, noteId) => {
         <Text style={styles.total}>Total: {total}</Text>
       </View>
 
-      <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 6 }}>
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 6, marginBottom: 10 }}>
+
+        {/* IMPORT BUTTON */}
+        <TouchableOpacity
+          style={[styles.smallBtn, { backgroundColor: "#22C55E" }]}
+          onPress={handleImport}
+        >
+          <Text style={styles.smallBtnText}>Import</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.smallBtn} onPress={() => setShowCallsModal(true)}>
           <Text style={styles.smallBtnText}>Calls</Text>
         </TouchableOpacity>
+
         <TouchableOpacity style={styles.smallBtn} onPress={() => setShowEmailModal(true)}>
           <Text style={styles.smallBtnText}>Email</Text>
         </TouchableOpacity>
       </View>
+
 
       <View style={styles.analyticsRow}>
         <View style={styles.card}><Text style={styles.cardNumber}>{total}</Text><Text style={styles.cardLabel}>Total Leads</Text></View>
@@ -225,56 +297,86 @@ const deleteNote = async (leadId, noteId) => {
       {loading ? (
         <ActivityIndicator size="small" />
       ) : (
-        <ScrollView horizontal>
-          <View style={{ minWidth: 1300 }}>
-            <View style={styles.tableHeader}>
-              {["S.No", "Name", "Phone", "Email", "Segment", "Status", "Priority", "Investment", "Branch", "Created", "Notes", "Action"].map((h, i) => (
-                <Text key={i} style={styles.tableHeaderText}>{h}</Text>
-              ))}
-            </View>
-
-            {filteredLeads.map((lead, index) => (
-              <View key={lead._id} style={styles.tableRow}>
-                <Text style={styles.cell}>{index + 1 + (page - 1) * 20}</Text>
-
-                <Text style={styles.cell}>{lead?.personalInfo?.name}</Text>
-
-                <Text
-                  style={[styles.cell, styles.boldLink]}
-                  onPress={() => Linking.openURL(`tel:${lead.personalInfo.phone}`)}
-                >
-                  {lead?.personalInfo?.phone || "-"}
-                </Text>
-
-                <Text
-                  style={[styles.cell, styles.boldLink]}
-                  onPress={() => Linking.openURL(`mailto:${lead.personalInfo.email}`)}
-                >
-                  {lead?.personalInfo?.email || "-"}
-                </Text>
-
-                <Text style={styles.cell}>{lead?.segment}</Text>
-                <Text style={styles.cell}>{lead?.status}</Text>
-                <Text style={styles.cell}>{lead?.priority}</Text>
-
-                <Text style={styles.cell}>{lead?.investmentSize?.amount ?? "-"}</Text>
-
-                <Text style={styles.cell}>{lead?.branch?.name}</Text>
-
-                <Text style={styles.cell}>
-                  {lead?.createdAt ? new Date(lead.createdAt).toLocaleDateString() : "-"}
-                </Text>
-
-                <Text style={styles.cell}>{lead?.notes?.length || 0}</Text>
-
-                <TouchableOpacity style={styles.editBtn} onPress={() => openNotesModal(lead)}>
-                  <Text style={styles.editBtnText}>Notes</Text>
-                </TouchableOpacity>
+        <ScrollView
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            nestedScrollEnabled
+          >
+            <View style={{ minWidth: 1300 }}>
+              <View style={styles.tableHeader}>
+                {[
+                  "S.No",
+                  "Name",
+                  "Phone",
+                  "Email",
+                  "Segment",
+                  "Status",
+                  "Priority",
+                  "Investment",
+                  "Branch",
+                  "Created",
+                  "Notes",
+                  "Action"
+                ].map((h, i) => (
+                  <Text key={i} style={styles.tableHeaderText}>{h}</Text>
+                ))}
               </View>
-            ))}
-          </View>
+
+              {/* TABLE ROWS */}
+              {filteredLeads.map((lead, index) => (
+                <View key={lead._id} style={styles.tableRow}>
+                  <Text style={styles.cell}>{index + 1 + (page - 1) * 20}</Text>
+
+                  <Text style={styles.cell}>{lead?.personalInfo?.name}</Text>
+
+                  <Text
+                    style={[styles.cell, styles.boldLink]}
+                    onPress={() => Linking.openURL(`tel:${lead.personalInfo.phone}`)}
+                  >
+                    {lead?.personalInfo?.phone || "-"}
+                  </Text>
+
+                  <Text
+                    style={[styles.cell, styles.boldLink]}
+                    onPress={() => Linking.openURL(`mailto:${lead.personalInfo.email}`)}
+                  >
+                    {lead?.personalInfo?.email || "-"}
+                  </Text>
+
+                  <Text style={styles.cell}>{lead?.segment}</Text>
+                  <Text style={styles.cell}>{lead?.status}</Text>
+                  <Text style={styles.cell}>{lead?.priority}</Text>
+
+                  <Text style={styles.cell}>{lead?.investmentSize?.amount ?? "-"}</Text>
+                  <Text style={styles.cell}>{lead?.branch?.name}</Text>
+
+                  <Text style={styles.cell}>
+                    {lead?.createdAt
+                      ? new Date(lead.createdAt).toLocaleDateString()
+                      : "-"}
+                  </Text>
+
+                  <Text style={styles.cell}>{lead?.notes?.length || 0}</Text>
+
+                  <TouchableOpacity
+                    style={styles.editBtn}
+                    onPress={() => openNotesModal(lead)}
+                  >
+                    <Text style={styles.editBtnText}>Notes</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+            </View>
+          </ScrollView>
         </ScrollView>
       )}
+
 
       {total > 20 && (
         <View style={styles.pagination}>

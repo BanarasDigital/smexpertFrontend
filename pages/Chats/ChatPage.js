@@ -31,6 +31,11 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { API_BASE_URL } from "../../config";
 import ChatSkeleton from "../../component/ChatSkeleton";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import * as IntentLauncher from "expo-intent-launcher";
+import mime from "mime";
+
 import { Video } from "expo-av";
 const BAD_URLS = new Set(["null", "undefined", "about:blank", ""]);
 const isBadBlob = (v = "") => /^blob:null/i.test(v);
@@ -84,28 +89,81 @@ const buildAuthHeaders = async (ctx) => {
 };
 
 const guessMimeFromName = (name = "") => {
+  if (!name) return "application/octet-stream";
+
   const ext = (name.split(".").pop() || "").toLowerCase();
-  if (
-    ["jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "svg"].includes(ext)
-  )
-    return `image/${ext === "jpg" ? "jpeg" : ext}`;
-  if (["mp4", "m4v", "mov", "avi", "mkv", "webm"].includes(ext))
-    return "video/mp4";
-  if (["pdf"].includes(ext)) return "application/pdf";
-  if (["txt"].includes(ext)) return "text/plain";
-  if (["csv"].includes(ext)) return "text/csv";
-  if (["json"].includes(ext)) return "application/json";
-  if (["doc", "docx"].includes(ext))
-    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  if (["xls", "xlsx"].includes(ext))
-    return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  if (["ppt", "pptx"].includes(ext))
-    return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-  if (["zip", "rar", "7z", "gz", "tar"].includes(ext)) return "application/zip";
-  if (["mp3", "wav", "m4a", "aac", "flac", "ogg", "oga", "opus"].includes(ext))
-    return "audio/*";
+
+  // Complete & updated MIME map
+  const map = {
+    // Images
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    heic: "image/heic",
+    heif: "image/heif",
+    svg: "image/svg+xml",
+
+    // Videos
+    mp4: "video/mp4",
+    mov: "video/quicktime",
+    avi: "video/x-msvideo",
+    mkv: "video/x-matroska",
+    webm: "video/webm",
+
+    // Text / Data
+    pdf: "application/pdf",
+    txt: "text/plain",
+    csv: "text/csv",
+    json: "application/json",
+
+    // Word
+    doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+
+    // Excel
+    xls: "application/vnd.ms-excel",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+    // PowerPoint
+    ppt: "application/vnd.ms-powerpoint",
+    pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+
+    // Compressed
+    zip: "application/zip",
+    rar: "application/x-rar-compressed",
+    "7z": "application/x-7z-compressed",
+    gz: "application/gzip",
+    tar: "application/x-tar",
+
+    // Audio
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+    m4a: "audio/mp4",
+    aac: "audio/aac",
+    ogg: "audio/ogg",
+    opus: "audio/opus",
+  };
+
+  // If known extension
+  if (map[ext]) return map[ext];
+
+  // Excel variants
+  if (ext === "xlsm" || ext === "xlsb") {
+    return "application/vnd.ms-excel";
+  }
+
+  // Apple iWork formats
+  if (ext === "pages") return "application/x-iwork-pages-sffpages";
+  if (ext === "numbers") return "application/x-iwork-numbers-sffnumbers";
+  if (ext === "key") return "application/x-iwork-keynote-sffkey";
+
+  // Default fallback
   return "application/octet-stream";
 };
+
+
 const isImage = (type = "", url = "") =>
   /image\//i.test(type) || /\.(jpe?g|png|gif|webp|heic|heif|svg)$/i.test(url);
 const isVideo = (type = "", url = "") =>
@@ -120,39 +178,65 @@ const normalizeFileUriForForm = (uri = "") => {
 };
 
 const normalizePickerAsset = (asset) => {
-  if (
-    "assetId" in asset ||
-    "fileName" in asset ||
-    asset?.type === "video" ||
-    asset?.type === "image"
-  ) {
-    const name =
-      asset.fileName ||
-      (asset.uri ? asset.uri.split("/").pop() : "") ||
-      `file-${Date.now()}`;
-    const type =
-      asset.mimeType ||
-      (asset.type === "video" ? "video/mp4" : guessMimeFromName(name));
-    return { uri: asset.uri, name, type, fileSize: asset.fileSize };
-  }
   const name =
     asset.name ||
+    asset.fileName ||
     (asset.uri ? asset.uri.split("/").pop() : `file-${Date.now()}`);
-  const type = asset.mimeType || guessMimeFromName(name);
-  return { uri: asset.uri, name, type, fileSize: asset.size };
+  const type = guessMimeFromName(name);
+  return {
+    uri: asset.uri,
+    name,
+    type,
+    fileSize: asset.size || asset.fileSize || null,
+  };
 };
+
 
 const normalizeServerAttachment = (raw) => {
   if (!raw) return null;
+
+  // If backend sends simple string
   if (typeof raw === "string") {
     const url = getSafeUrl(raw);
-    const inferredType = guessMimeFromName(url);
-    return { url, type: inferredType, name: url.split("/").pop() || "file" };
+    const name = url.split("/").pop();
+    const type = guessMimeFromName(name);
+    return { url, name, type };
   }
-  const url = getSafeUrl(raw.url || raw.path || raw);
-  const type = raw.type || guessMimeFromName(raw.name || url);
-  const name = raw.name || url.split("/").pop() || "file";
-  return { url, type, name };
+
+  // If backend sends an object
+  const url = getSafeUrl(raw.url || raw.path || raw.filePath || "");
+  const name = raw.name || url.split("/").pop();
+  const type = raw.type || guessMimeFromName(name);
+
+  return { url, name, type };
+};
+
+
+const downloadAndOpen = async (url, fileName) => {
+  try {
+    const fileUri = FileSystem.documentDirectory + fileName;
+
+    const downloadRes = await FileSystem.downloadAsync(url, fileUri);
+    if (!downloadRes || !downloadRes.uri) {
+      Alert.alert("Error", "Download failed.");
+      return;
+    }
+
+    const mimeType = mime.getType(fileName);
+
+
+    if (Platform.OS === "ios") {
+      await Sharing.shareAsync(downloadRes.uri, { mimeType });
+    } else {
+      await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+        data: downloadRes.uri,
+        flags: 1,
+        type: mimeType,
+      });
+    }
+  } catch (err) {
+    Alert.alert("Error", "Unable to open file.");
+  }
 };
 
 const getAnyAvatarField = (obj) =>
@@ -456,59 +540,74 @@ export default function ChatScreen({ navigation, route }) {
 
     try {
       const formData = new FormData();
-      if (user?._id) formData.append("senderId", String(user._id));
-      if (peerId) formData.append("receiverId", String(peerId));
+
+      formData.append("senderId", String(user?._id));
+      formData.append("receiverId", String(peerId));
+
       if (trimmed) formData.append("content", trimmed);
 
-      attachments.forEach((file) => {
-        const name = file.name || `file-${Date.now()}`;
-        const type = file.type || guessMimeFromName(name);
+      attachments.forEach((file, index) => {
+        const name = file.name || `file-${Date.now()}-${index}`;
         const uri = normalizeFileUriForForm(file.uri);
-        formData.append("files", { uri, name, type });
+
+        let type = guessMimeFromName(name);
+
+        // FORCE correct Excel MIME
+        if (name.endsWith(".xls")) {
+          type = "application/vnd.ms-excel";
+        }
+        if (name.endsWith(".xlsx")) {
+          type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        }
+
+        console.log("📤 UPLOADING FILE:", { name, uri, type });
+
+        formData.append("files", {
+          uri,
+          name,
+          type,
+        });
       });
 
+
       const auth = await buildAuthHeaders(ctx);
+
       const res = await fetch(`${API_BASE_URL}/chat/${peerId}`, {
         method: "POST",
+        headers: {
+          Accept: "application/json",
+          ...auth,
+        },
         body: formData,
-        headers: { Accept: "application/json", ...auth },
       });
-      fetch(`${API_BASE_URL}/sendByProjectId`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId: "smexpert",
-          title: "New Message",
-          message: `${user?.name || "Someone"} sent you a message`,
-          data: { chatType: "private" },
-        }),
-      });
-      const ct = res.headers.get("content-type") || "";
-      const data = ct.includes("application/json")
+
+      const contentType = res.headers.get("content-type") || "";
+      const data = contentType.includes("application/json")
         ? await res.json().catch(() => null)
         : null;
 
-      if (res.ok && data?.success !== false) {
-        setMessage("");
-        setAttachments([]);
-
-        apiGet(`/chat/${peerId}`, {}, setChatData);
-        socketRef.current?.emit("send_message", { to: peerId });
-        setIsTyping(false);
-        setIsOnline(true);
-        socketRef.current?.emit("stop_typing", { userId: user._id, peerId });
-
-        setTimeout(
-          () => scrollViewRef.current?.scrollToEnd({ animated: true }),
-          120
-        );
-      } else {
-        Alert.alert("Failed", data?.message || "Could not send the message.");
+      if (!res.ok || !data?.success) {
+        console.log("❌ UPLOAD FAILED → ", data);
+        Alert.alert("Failed", data?.message || "Upload error.");
+        return;
       }
+
+      console.log("✅ UPLOAD SUCCESS → ", data);
+
+      setMessage("");
+      setAttachments([]);
+
+      apiGet(`/chat/${peerId}`, {}, setChatData);
+      socketRef.current?.emit("send_message", { to: peerId });
+
+      scrollViewRef.current?.scrollToEnd({ animated: true });
     } catch (err) {
+      console.log("🔥 UPLOAD ERROR → ", err);
       Alert.alert("Error", "Something went wrong while sending.");
     }
   };
+
+
   const emitTyping = () => {
     const sock = socketRef.current;
     if (!sock) return;
@@ -667,9 +766,12 @@ export default function ChatScreen({ navigation, route }) {
     const mediaAtt = allAtt.filter(
       (a) => isImage(a.type, a.url) || isVideo(a.type, a.url)
     );
-    const fileAtt = allAtt.filter(
-      (a) => !isImage(a.type, a.url) && !isVideo(a.type, a.url)
-    );
+    const fileAtt = allAtt.filter((a) => {
+      const isImg = isImage(a.type, a.url);
+      const isVid = isVideo(a.type, a.url);
+      return !isImg && !isVid;
+    });
+
     const showLinky = textValue && allAtt.length === 0;
 
     return (
@@ -683,26 +785,27 @@ export default function ChatScreen({ navigation, route }) {
               ) : (
                 <Text style={styles.messageText}>{textValue}</Text>
               )}
-              <Text style={styles.timeText}>
-                {msg.time || new Date(msg.createdAt).toLocaleTimeString()}
-              </Text>
-              {isMe && (
-                <View
-                  style={{
-                    flexDirection: "row",
-                    marginTop: 2,
-                    alignSelf: "flex-end",
-                  }}
-                >
-                  {msg.read ? (
-                    <Ionicons name="checkmark-done" size={16} color="#34B7F1" />
-                  ) : msg.delivered ? (
-                    <Ionicons name="checkmark-done" size={16} color="gray" />
-                  ) : (
-                    <Ionicons name="checkmark" size={16} color="gray" />
-                  )}
-                </View>
-              )}
+              <View style={styles.timeRow}>
+                <Text style={styles.timeText}>
+                  {new Date(msg.createdAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </Text>
+
+                {isMe && (
+                  <>
+                    {msg.read ? (
+                      <Ionicons name="checkmark-done" size={16} color="#34B7F1" style={styles.tickIcon} />
+                    ) : msg.delivered ? (
+                      <Ionicons name="checkmark-done" size={16} color="gray" style={styles.tickIcon} />
+                    ) : (
+                      <Ionicons name="checkmark" size={16} color="gray" style={styles.tickIcon} />
+                    )}
+                  </>
+                )}
+              </View>
+
             </View>
           ) : null}
 
@@ -722,7 +825,7 @@ export default function ChatScreen({ navigation, route }) {
 
           {fileAtt.map((att, idx) => (
             <View
-              key={`${msg._id || msg.id}-file-${idx}`}
+              key={`file-${idx}`}
               style={[styles.messageBubble, bubbleStyle, { padding: 0 }]}
             >
               <View
@@ -737,22 +840,24 @@ export default function ChatScreen({ navigation, route }) {
                   color="#333"
                 />
                 <Text style={styles.fileName} numberOfLines={1}>
-                  {att.name || att.url.split("/").pop()}
+                  {att.name}
                 </Text>
-                <TouchableOpacity onPress={() => Linking.openURL(att.url)}>
-                  <Text style={styles.fileOpen}>Open</Text>
+                <TouchableOpacity onPress={() => downloadAndOpen(att.url, att.name)}>
+                  <Text style={styles.fileOpen}>Download</Text>
                 </TouchableOpacity>
               </View>
+
               <Text
                 style={[
                   styles.timeText,
                   { paddingHorizontal: 8, paddingBottom: 6 },
                 ]}
               >
-                {msg.time || new Date(msg.createdAt).toLocaleTimeString()}
+                {new Date(msg.createdAt).toLocaleTimeString()}
               </Text>
             </View>
           ))}
+
         </View>
         {isMe && renderAvatar(msg)}
       </View>
@@ -1003,9 +1108,10 @@ export default function ChatScreen({ navigation, route }) {
                     <Text style={styles.modalFileName} numberOfLines={1}>
                       {current.name || (uri || "").split("/").pop()}
                     </Text>
-                    <TouchableOpacity onPress={() => Linking.openURL(uri)}>
-                      <Text style={styles.modalOpenBtn}>Open</Text>
+                    <TouchableOpacity onPress={() => downloadAndOpen(uri, current.name)}>
+                      <Text style={styles.modalOpenBtn}>Download</Text>
                     </TouchableOpacity>
+
                   </View>
                 );
               })()}
@@ -1045,10 +1151,7 @@ export default function ChatScreen({ navigation, route }) {
   );
 }
 
-/* ------------------------------
-   Styles — unchanged from your file
-   (kept verbatim)
-   ------------------------------ */
+
 const styles = StyleSheet.create({
   topBar: {
     flexDirection: "row",
@@ -1100,7 +1203,7 @@ const styles = StyleSheet.create({
   },
   theirMessage: {
     alignSelf: "flex-start",
-    backgroundColor: "#fff",
+    backgroundColor: "#DCF8C6",
     borderBottomLeftRadius: 0,
     marginTop: 4,
     marginRight: 50,
@@ -1243,4 +1346,15 @@ const styles = StyleSheet.create({
   modalFileBox: { alignItems: "center", gap: 8 },
   modalFileName: { color: "#fff", maxWidth: 300 },
   modalOpenBtn: { color: "#66B2FF", fontWeight: "700", marginTop: 8 },
+  timeRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    marginTop: 3,
+  },
+
+  tickIcon: {
+    marginLeft: 4,
+  },
+
 });

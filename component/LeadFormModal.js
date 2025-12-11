@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
-    maxHeight: "88%",
+    maxHeight: "95%",
   },
   handleBar: {
     alignSelf: "center",
@@ -511,6 +511,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     marginTop: 10,
+    marginBottom:45,
   },
   footerBtn: {
     paddingHorizontal: 16,

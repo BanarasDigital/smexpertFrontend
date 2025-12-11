@@ -42,9 +42,9 @@ const OptionModal = ({ visible, title, options, selected, onSelect, onClose }) =
                 <Text style={styles.modalTitle}>{title}</Text>
 
                 <ScrollView style={{ maxHeight: 280 }}>
-                    {options.map((op) => (
+                    {options.map((op, index) => (
                         <TouchableOpacity
-                            key={op.value}
+                            key={index}
                             onPress={() => {
                                 onSelect(op.value);
                                 onClose();
@@ -61,6 +61,7 @@ const OptionModal = ({ visible, title, options, selected, onSelect, onClose }) =
                             </Text>
                         </TouchableOpacity>
                     ))}
+
                 </ScrollView>
 
                 <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
@@ -70,6 +71,7 @@ const OptionModal = ({ visible, title, options, selected, onSelect, onClose }) =
         </View>
     </Modal>
 );
+
 export default function LeadPage({ navigation }) {
     const { apiGet, apiPostForm, apiPost, apiPut, apiDelete, checkSession } = useContext(DataContext);
 
@@ -91,9 +93,18 @@ export default function LeadPage({ navigation }) {
 
     const [formVisible, setFormVisible] = useState(false);
     const [formMode, setFormMode] = useState("add");
+    const [showExportBranchList, setShowExportBranchList] = useState(false);
+    const [showExportUserList, setShowExportUserList] = useState(false);
 
     const [saving, setSaving] = useState(false);
-
+    const [exportModalVisible, setExportModalVisible] = useState(false);
+    const [branchList, setBranchList] = useState([]);
+    const [userList, setUserList] = useState([]);
+    const [filteredUsers, setFilteredUsers] = useState([])
+    const [exportBranch, setExportBranch] = useState(null);
+    const [exportAssignedTo, setExportAssignedTo] = useState(null);
+    const [branchModalVisible, setBranchModalVisible] = useState(false);
+    const [assignedModalVisible, setAssignedModalVisible] = useState(false);
     const [formState, setFormState] = useState({
         id: undefined,
         name: "",
@@ -151,7 +162,47 @@ export default function LeadPage({ navigation }) {
     useEffect(() => {
         fetchLeads();
     }, []);
+    const fetchExportData = async () => {
+        try {
+            const token = await checkSession();
+            if (!token) return;
+            const branchRes = await apiGet("/admin/branches");
+            const branchList = Array.isArray(branchRes)
+                ? branchRes
+                : branchRes.branches || [];
 
+            setBranchList(branchList);
+            let allUsers = [];
+            for (const branch of branchList) {
+                const res = await apiGet(`/admin/branches/${branch._id}/users`);
+                if (res?.users) {
+                    allUsers.push(
+                        ...res.users.map(u => ({
+                            ...u,
+                            branchId: branch._id,
+                        }))
+                    );
+                }
+            }
+
+            setUserList(allUsers);
+            setFilteredUsers(allUsers);
+        } catch (err) {
+            console.log("EXPORT FILTER LOAD ERROR:", err);
+        }
+    };
+    useEffect(() => {
+        fetchExportData();
+    }, []);
+    useEffect(() => {
+        if (exportBranch === "all") {
+            setFilteredUsers(userList);
+        } else {
+            const users = userList.filter(u => u.branchId === exportBranch);
+            setFilteredUsers(users);
+            setExportAssignedTo("all");
+        }
+    }, [exportBranch, userList]);
     const handleImport = async () => {
         try {
             const pick = await DocumentPicker.getDocumentAsync({
@@ -165,30 +216,51 @@ export default function LeadPage({ navigation }) {
             if (pick.canceled) return;
 
             const file = pick.assets?.[0];
-
             if (!file) {
                 Alert.alert("Error", "No file selected.");
                 return;
             }
-
             const formData = new FormData();
-
             formData.append("file", {
                 uri: file.uri,
                 name: file.name || "import.xlsx",
-                type: file.mimeType || "application/octet-stream",
+                type:
+                    file.mimeType ||
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            });
+            const freshToken = await checkSession();
+            if (!freshToken) {
+                Alert.alert("Session expired", "Please login again.");
+                return;
+            }
+            const res = await fetch(`${API_BASE_URL}/lead/import`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${freshToken}`,
+                    Accept: "application/json",
+                },
+                body: formData,
             });
 
-            const res = await apiPostForm("/lead/import", formData);
+            const json = await res.json();
+
+            if (!json.success) {
+                Alert.alert(
+                    "Import Failed",
+                    json.message ??
+                    `Imported: ${json.imported ?? 0}\nFailed: ${json.failed ?? 0}`
+                );
+                return;
+            }
 
             Alert.alert(
                 "Import Summary",
-                `Imported: ${res?.imported ?? 0}\nFailed: ${res?.failed ?? 0}`
+                `Imported: ${json.imported ?? 0}\nFailed: ${json.failed ?? 0}`
             );
 
             fetchLeads();
-        } catch (e) {
-            console.log("IMPORT ERROR:", e);
+        } catch (error) {
+            console.log("IMPORT ERROR:", error);
             Alert.alert("Error", "Failed to import leads.");
         }
     };
@@ -220,7 +292,7 @@ export default function LeadPage({ navigation }) {
             Alert.alert("Error", "Template download failed.");
         }
     };
-    const handleExport = async () => {
+    const handleExportFiltered = async () => {
         try {
             const token = await checkSession();
             if (!token) {
@@ -228,14 +300,30 @@ export default function LeadPage({ navigation }) {
                 return;
             }
 
-            const downloadUrl = `${API_BASE_URL}/lead/export`;
+            // Build dynamic filename
+            let filename = "leads.xlsx";
 
-            const fileUri = FileSystem.documentDirectory + "lead-export.xlsx";
+            const branchObj = branchList.find(b => b._id === exportBranch);
+            const userObj = filteredUsers.find(u => u._id === exportAssignedTo);
+
+            if (branchObj && userObj) {
+                filename = `${branchObj.name}_${userObj.name}.leads.xlsx`;
+            } else if (branchObj) {
+                filename = `${branchObj.name}.leads.xlsx`;
+            } else if (userObj) {
+                filename = `${userObj.name}.leads.xlsx`;
+            }
+
+            // Safe filename formatting
+            filename = filename.replace(/\s+/g, "-").replace(/[^\w.-]/g, "");
+
+            const params = `?branchId=${exportBranch}&assignedTo=${exportAssignedTo}`;
+            const downloadUrl = `${API_BASE_URL}/lead/export${params}`;
+
+            const fileUri = FileSystem.documentDirectory + filename;
 
             const { uri } = await FileSystem.downloadAsync(downloadUrl, fileUri, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { Authorization: `Bearer ${token}` }
             });
 
             if (await Sharing.isAvailableAsync()) {
@@ -243,18 +331,17 @@ export default function LeadPage({ navigation }) {
             } else {
                 Alert.alert("Exported", "File saved: " + uri);
             }
+
         } catch (err) {
             console.log("EXPORT ERROR:", err);
             Alert.alert("Error", "Export failed. Try again.");
         }
     };
-
     const openAddForm = () => {
         resetForm();
         setFormMode("add");
         setFormVisible(true);
     };
-
     const openEditForm = (lead) => {
         setFormState({
             id: lead._id,
@@ -538,7 +625,10 @@ export default function LeadPage({ navigation }) {
                     <Text style={styles.toolbarBtnText}>Import</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.toolbarBtn} onPress={handleExport}>
+                <TouchableOpacity
+                    style={styles.toolbarBtn}
+                    onPress={() => setExportModalVisible(true)}
+                >
                     <Text style={styles.toolbarBtnText}>Export</Text>
                 </TouchableOpacity>
 
@@ -686,6 +776,155 @@ export default function LeadPage({ navigation }) {
                     { label: "Forex", value: "forex" },
                 ]}
             />
+            <Modal visible={exportModalVisible} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalBox}>
+                        <Text style={styles.modalTitle}>Export Leads</Text>
+
+                        {/* BRANCH DROPDOWN */}
+                        <View style={{ marginTop: 10, position: "relative", zIndex: 99999 }}>
+                            <Text style={styles.label}>Branch</Text>
+
+                            <TouchableOpacity
+                                style={styles.bulkDropdown}
+                                onPress={() => {
+                                    setShowExportBranchList(prev => !prev);
+                                    setShowExportUserList(false);
+                                }}
+                            >
+                                <Text
+                                    style={[
+                                        styles.bulkDropdownText,
+                                        exportBranch === null ? { color: "#9CA3AF" } : { color: "#9CA3AF" }
+                                    ]}
+                                >
+                                    {exportBranch === null
+                                        ? "Select Branch"
+                                        : branchList.find(b => b._id === exportBranch)?.name}
+                                </Text>
+                            </TouchableOpacity>
+
+                            {showExportBranchList && (
+                                <View style={styles.optionContainer}>
+                                    {branchList.map(b => (
+                                        <TouchableOpacity
+                                            key={b._id}
+                                            onPress={() => {
+                                                setExportBranch(b._id);
+                                                setExportAssignedTo(null);
+                                                setShowExportBranchList(false);
+                                            }}
+                                        >
+                                            <Text style={styles.option}>{b.name}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+
+                        {/* USER DROPDOWN */}
+                        <View style={{ marginTop: 12, position: "relative", zIndex: 99998 }}>
+                            <Text style={styles.label}>Assigned User</Text>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.bulkDropdown,
+                                    exportBranch === null ? { opacity: 0.4 } : {}
+                                ]}
+                                disabled={exportBranch === null}
+                                onPress={() => {
+                                    if (filteredUsers.length > 0) {
+                                        setShowExportUserList(prev => !prev);
+                                        setShowExportBranchList(false);
+                                    }
+                                }}
+                            >
+                                <Text
+                                    style={[
+                                        styles.bulkDropdownText,
+                                        exportAssignedTo === null ? { color: "#9CA3AF" } : { color: "#9CA3AF" }
+                                    ]}
+                                >
+                                    {exportBranch === null
+                                        ? "Select Branch First"
+                                        : exportAssignedTo === null
+                                            ? "Select User"
+                                            : filteredUsers.find(u => u._id === exportAssignedTo)?.name}
+                                </Text>
+                            </TouchableOpacity>
+
+                            {showExportUserList && filteredUsers.length > 0 && (
+                                <View style={styles.optionContainer}>
+                                    {filteredUsers.map(u => (
+                                        <TouchableOpacity
+                                            key={u._id}
+                                            onPress={() => {
+                                                setExportAssignedTo(u._id);
+                                                setShowExportUserList(false);
+                                            }}
+                                        >
+                                            <Text style={styles.option}>{u.name}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+
+                        {/* DOWNLOAD BUTTON */}
+                        <TouchableOpacity
+                            style={[styles.toolbarBtnPrimary, { marginTop: 20 }]}
+                            onPress={() => {
+                                setExportModalVisible(false);
+                                handleExportFiltered();
+                            }}
+                        >
+                            <Text style={styles.toolbarBtnPrimaryText}>Download</Text>
+                        </TouchableOpacity>
+
+                        {/* CANCEL BUTTON */}
+                        <TouchableOpacity
+                            style={[styles.modalCloseBtn, { marginTop: 12 }]}
+                            onPress={() => setExportModalVisible(false)}
+                        >
+                            <Text style={styles.modalCloseText}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            <OptionModal
+                visible={branchModalVisible}
+                title="Select Branch"
+                selected={exportBranch}
+                onSelect={(value) => {
+                    setExportBranch(value);
+                    setExportAssignedTo(null);
+                }}
+                onClose={() => setBranchModalVisible(false)}
+                options={[
+                    { label: "Select Branch", value: null },
+                    ...branchList.map(b => ({
+                        label: b.name,
+                        value: b._id
+                    }))
+                ]}
+            />
+
+            <OptionModal
+                visible={assignedModalVisible}
+                title="Select Assigned User"
+                selected={exportAssignedTo}
+                onSelect={(value) => setExportAssignedTo(value)}
+                onClose={() => setAssignedModalVisible(false)}
+                options={[
+                    { label: "Select User", value: null },
+                    ...filteredUsers.map(u => ({
+                        label: u.name,
+                        value: u._id
+                    }))
+                ]}
+            />
+
         </View>
     );
 }
@@ -765,7 +1004,39 @@ const styles = StyleSheet.create({
         borderRadius: 999,
     },
     toolbarBtnPrimaryText: { fontSize: 12, color: "#fff", fontWeight: "700" },
-
+    label: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#6B7280",
+        marginBottom: 4
+    },
+    bulkDropdown: {
+        backgroundColor: "#fff",
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#E5E7EB"
+    },
+    bulkDropdownText: {
+        fontSize: 14,
+        fontWeight: "700"
+    },
+    optionContainer: {
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 10,
+        marginTop: 8,
+        maxHeight: 200,
+        paddingVertical: 6
+    },
+    option: {
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        fontSize: 14,
+        color: "#111827"
+    }
+    ,
     searchInput: {
         backgroundColor: "#fff",
         padding: 10,

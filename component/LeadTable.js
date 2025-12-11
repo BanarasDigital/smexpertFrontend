@@ -21,7 +21,7 @@ export default function LeadTable({
     onDelete,
     fetchLeads
 }) {
-    const { apiGet, apiPost,user } = useContext(DataContext);
+    const { apiGet, apiPost, user } = useContext(DataContext);
 
     const [search, setSearch] = useState("");
 
@@ -111,72 +111,72 @@ export default function LeadTable({
         setSelected({});
         setSelectAll(false);
     };
-const handleBulkAssign = async () => {
-  if (user?.user_type !== "admin") {
-    console.log("❌ Permission denied — User is not admin:", user?.user_type);
-    alert("Only admin can bulk assign leads.");
-    return;
-  }
-  const ids = Object.keys(selected).filter(id => selected[id]);
+    const handleBulkAssign = async () => {
+        if (user?.user_type !== "admin") {
+            console.log("❌ Permission denied — User is not admin:", user?.user_type);
+            alert("Only admin can bulk assign leads.");
+            return;
+        }
+        const ids = Object.keys(selected).filter(id => selected[id]);
 
-  if (!ids.length) {
-    alert("No leads selected");
-    return;
-  }
+        if (!ids.length) {
+            alert("No leads selected");
+            return;
+        }
 
-  if (!selectedBranch) {
-    alert("Select branch first");
-    return;
-  }
+        if (!selectedBranch) {
+            alert("Select branch first");
+            return;
+        }
 
-  if (!selectedUser) {
-    alert("Select user");
-    return;
-  }
+        if (!selectedUser) {
+            alert("Select user");
+            return;
+        }
 
-  console.log("🔥 Sending Bulk Assign Request >>>", {
-    leads: ids,
-    branchId: selectedBranch,
-    userId: selectedUser,
-  });
-  let res = null;
+        console.log("🔥 Sending Bulk Assign Request >>>", {
+            leads: ids,
+            branchId: selectedBranch,
+            userId: selectedUser,
+        });
+        let res = null;
 
-  try {
-    res = await apiPost("/lead/bulk-assign", {
-      leads: ids,
-      branchId: selectedBranch,
-      userId: selectedUser,
-    });
+        try {
+            res = await apiPost("/lead/bulk-assign", {
+                leads: ids,
+                branchId: selectedBranch,
+                userId: selectedUser,
+            });
 
-    console.log("📌 Raw response received:", res);
-  } catch (error) {
-    console.log("❌ ERROR calling /lead/bulk-assign:", error);
-    alert("Server error — please check your backend logs.");
-    return;
-  }
-  if (!res || typeof res !== "object") {
-    console.log("❌ NULL/Invalid response from backend:", res);
-    alert("Unexpected server response. Check backend implementation.");
-    return;
-  }
-  if (res.success) {
-    console.log("🎉 Bulk Assign Success — Updated Leads:", res.updatedLeads);
+            console.log("📌 Raw response received:", res);
+        } catch (error) {
+            console.log("❌ ERROR calling /lead/bulk-assign:", error);
+            alert("Server error — please check your backend logs.");
+            return;
+        }
+        if (!res || typeof res !== "object") {
+            console.log("❌ NULL/Invalid response from backend:", res);
+            alert("Unexpected server response. Check backend implementation.");
+            return;
+        }
+        if (res.success) {
+            console.log("🎉 Bulk Assign Success — Updated Leads:", res.updatedLeads);
 
-    alert(`Assigned ${res.updatedCount} leads successfully`);
-    if (typeof fetchLeads === "function") {
-      console.log("🔄 Fetching updated leads from database...");
-      await fetchLeads();
-    }
-    setSelected({});
-    setSelectAll(false);
-    setAssignModal(false);
+            alert(`Assigned ${res.updatedCount} leads successfully`);
+            if (typeof fetchLeads === "function") {
+                console.log("🔄 Fetching updated leads from database...");
+                await fetchLeads();
+            }
+            setSelected({});
+            setSelectAll(false);
+            setAssignModal(false);
 
-    console.log("✔ UI state reset after assign");
-  } else {
-    console.log("❌ Backend returned failure:", res.message);
-    alert(res.message || "Bulk assign failed.");
-  }
-};
+            console.log("✔ UI state reset after assign");
+        } else {
+            console.log("❌ Backend returned failure:", res.message);
+            alert(res.message || "Bulk assign failed.");
+        }
+    };
 
 
     const filteredLeads = leads.filter(l =>
@@ -200,6 +200,7 @@ const handleBulkAssign = async () => {
                 placeholder="Search by name or phone..."
                 value={search}
                 onChangeText={setSearch}
+                placeholderTextColor="#9CA3AF"
                 style={styles.searchBar}
             />
             {Object.values(selected).some(v => v) && (
