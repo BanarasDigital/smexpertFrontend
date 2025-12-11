@@ -160,56 +160,41 @@ const handleImport = async () => {
     if (pick.canceled) return;
 
     const file = pick.assets?.[0];
-    if (!file) {
-      Alert.alert("Error", "No file selected.");
-      return;
-    }
+    if (!file) return Alert.alert("Error", "No file selected.");
 
-    // FORM DATA
     const formData = new FormData();
     formData.append("file", {
       uri: file.uri,
       name: file.name || "import.xlsx",
-      type: file.mimeType || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      type:
+        file.mimeType ||
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
 
-    // TOKEN
     const freshToken = await checkSession();
-    if (!freshToken) {
-      Alert.alert("Session expired", "Please login again.");
-      return;
-    }
+    if (!freshToken) return Alert.alert("Session expired");
 
-    // 🌟 IMPORTANT — PASS BRANCH + USER
     const importUrl = `${API_BASE_URL}/lead/import/${user.branch}/${user._id}`;
 
     const res = await fetch(importUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${freshToken}`,
-        Accept: "application/json",
-      },
+      headers: { Authorization: `Bearer ${freshToken}` },
       body: formData,
     });
 
     const json = await res.json();
 
-    if (!json.success) {
-      Alert.alert("Import Failed", `Imported: ${json.imported}\nFailed: ${json.failed}`);
-      return;
-    }
+    Alert.alert(
+      "Import Result",
+      `Imported: ${json.imported}\nUpdated: ${json.updated}\nFailed: ${json.failed}`
+    );
 
-    Alert.alert("Import Complete", `Imported: ${json.imported}\nFailed: ${json.failed}`);
-
-    // REFRESH TABLE
-    await fetchLeads();
-
+    fetchLeads();
   } catch (err) {
     console.log("IMPORT ERROR:", err);
-    Alert.alert("Error", "Failed to import leads.");
+    Alert.alert("Error", "Import failed.");
   }
 };
-
 
   const userName = user?.name || user?.fullName || "User";
 

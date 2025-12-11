@@ -220,6 +220,7 @@ export default function LeadPage({ navigation }) {
                 Alert.alert("Error", "No file selected.");
                 return;
             }
+
             const formData = new FormData();
             formData.append("file", {
                 uri: file.uri,
@@ -228,11 +229,10 @@ export default function LeadPage({ navigation }) {
                     file.mimeType ||
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             });
+
             const freshToken = await checkSession();
-            if (!freshToken) {
-                Alert.alert("Session expired", "Please login again.");
-                return;
-            }
+            if (!freshToken) return Alert.alert("Session expired");
+
             const res = await fetch(`${API_BASE_URL}/lead/import`, {
                 method: "POST",
                 headers: {
@@ -244,26 +244,18 @@ export default function LeadPage({ navigation }) {
 
             const json = await res.json();
 
-            if (!json.success) {
-                Alert.alert(
-                    "Import Failed",
-                    json.message ??
-                    `Imported: ${json.imported ?? 0}\nFailed: ${json.failed ?? 0}`
-                );
-                return;
-            }
-
             Alert.alert(
                 "Import Summary",
-                `Imported: ${json.imported ?? 0}\nFailed: ${json.failed ?? 0}`
+                `Imported: ${json.imported}\nUpdated: ${json.updated}\nFailed: ${json.failed}`
             );
 
             fetchLeads();
-        } catch (error) {
-            console.log("IMPORT ERROR:", error);
+        } catch (err) {
+            console.log("IMPORT ERROR:", err);
             Alert.alert("Error", "Failed to import leads.");
         }
     };
+
     const handleTemplate = async () => {
         try {
             const token = await checkSession();

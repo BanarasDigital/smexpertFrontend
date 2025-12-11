@@ -31,7 +31,9 @@ import { API_BASE_URL } from "../config";
 import { DataContext } from "../context";
 import GroupTopBar from "./GroupTopBar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import * as IntentLauncher from "expo-intent-launcher";
 const isImage = (t = "", url = "") =>
   /image\//i.test(t) || /\.(jpe?g|png|gif|webp|heic|heif|svg)$/i.test(url);
 const isVideo = (t = "", url = "") =>
@@ -219,24 +221,40 @@ export default function GroupChat({ navigation, route }) {
       ]);
     }
   };
+  const downloadFile = async (url) => {
+    try {
+      const fileUri = FileSystem.documentDirectory + url.split("/").pop();
+
+      const downloaded = await FileSystem.downloadAsync(url, fileUri);
+
+      if (Platform.OS === "android") {
+        await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+          data: downloaded.uri,
+          flags: 1,
+        });
+      } else {
+        await Sharing.shareAsync(downloaded.uri);
+      }
+    } catch (err) {
+      Alert.alert("Download failed", err.message);
+    }
+  };
+
 
   /* Send message */
   const sendMessage = async () => {
     try {
-      // ✅ Step 1: Validate user session via context
       const freshToken = await checkSession();
       if (!freshToken) {
         Alert.alert("Error", "Session expired. Please log in again.");
         return;
       }
 
-      // ✅ Step 2: Verify sender identity
       if (!user || !user._id) {
         Alert.alert("Error", "User not found or unauthorized.");
         return;
       }
 
-      // ✅ Step 3: Validate group
       let activeGroupId = groupId;
       if (!activeGroupId) {
         const res = await apiGet(`/groups/${groupId}`);
@@ -249,27 +267,33 @@ export default function GroupChat({ navigation, route }) {
         setGroup(g);
       }
 
-      // ✅ Step 4: Ensure non-empty message
       if (!text.trim() && attachments.length === 0) return;
 
-      // ✅ Step 5: Build FormData safely
       const formData = new FormData();
       formData.append("groupId", activeGroupId);
       formData.append("senderId", String(user._id));
       if (text.trim()) formData.append("content", text.trim());
 
+      // ✅ Add correct MIME support for XLSX
+      const correctMime = (name = "") => {
+        const ext = name.split(".").pop().toLowerCase();
+        if (ext === "xlsx")
+          return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        if (ext === "xls") return "application/vnd.ms-excel";
+        return "application/octet-stream";
+      };
+
       attachments.forEach((file, i) => {
-        const uri = file.uri.startsWith("file://")
-          ? file.uri
-          : `file://${file.uri}`;
+        const finalType = file.type || correctMime(file.name);
+        const uri = file.uri.startsWith("file://") ? file.uri : `file://${file.uri}`;
+
         formData.append("files", {
           uri,
           name: file.name || `upload-${Date.now()}-${i}`,
-          type: file.type || "application/octet-stream",
+          type: finalType,
         });
       });
 
-      // ✅ Step 6: Send message with valid Authorization header
       const response = await fetch(
         `${API_BASE_URL}/groups/${activeGroupId}/messages`,
         {
@@ -284,7 +308,6 @@ export default function GroupChat({ navigation, route }) {
 
       const data = await response.json().catch(() => ({}));
 
-      // ✅ Step 7: Handle server response
       if (!response.ok || !data?.success) {
         console.error("❌ Message send failed:", data);
         Alert.alert(
@@ -293,32 +316,22 @@ export default function GroupChat({ navigation, route }) {
         );
         return;
       }
-      fetch(`${API_BASE_URL}/sendByProjectId`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId: "smexpert",
-          title: "New Group Message",
-          message: `${user?.name || "Someone"} sent a message in group`,
-          data: { chatType: "group", groupId },
-        }),
-      });
-      // ✅ Step 8: Update UI
-      const newMsg = data.message;
-      setMessages((prev) => [...prev, newMsg]);
+
+      setMessages((prev) => [...prev, data.message]);
       setText("");
       setAttachments([]);
       requestAnimationFrame(scrollToEnd);
 
       socketRef.current?.emit("send_group_message", {
         groupId: activeGroupId,
-        message: newMsg,
+        message: data.message,
       });
     } catch (err) {
       console.error("sendMessage error:", err);
       Alert.alert("Error", "Something went wrong while sending the message.");
     }
   };
+
 
   /* Preview modal */
   const openPreview = (items, index) => {
@@ -448,18 +461,26 @@ export default function GroupChat({ navigation, route }) {
             </View>
           ) : null}
 
+
           {/* File tiles */}
           {files.map((f, i) => (
             <View key={`f-${i}`} style={styles.fileTile}>
-              <Ionicons name="document-attach-outline" size={22} color="#333" />
-              <Text style={styles.fileName} numberOfLines={1}>
+              <Ionicons name="document-attach-outline" size={24} color="#333" />
+
+              <Text
+                style={styles.fileName}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {f.name}
               </Text>
-              <TouchableOpacity onPress={() => openPreview([f], 0)}>
-                <Text style={styles.fileOpen}>Open</Text>
+
+              <TouchableOpacity onPress={() => downloadFile(f.url)}>
+                <Ionicons name="download-outline" size={24} color="#0B6E4F" />
               </TouchableOpacity>
             </View>
           ))}
+
 
           <Text style={styles.time}>{formatClock(item.createdAt)}</Text>
         </View>
@@ -769,6 +790,22 @@ export default function GroupChat({ navigation, route }) {
                     </View>
                   );
                 }
+                if (isExcel(it.type, uri)) {
+                  return (
+                    <View style={styles.modalFile}>
+                      <Ionicons name="document-text-outline" size={60} color="#fff" />
+                      <Text style={{ color: "#fff", marginTop: 10 }}>{it.name}</Text>
+
+                      <TouchableOpacity
+                        onPress={() => downloadFile(uri)}
+                        style={{ marginTop: 14 }}
+                      >
+                        <Ionicons name="download-outline" size={40} color="#4ADE80" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }
+
                 return (
                   <View style={styles.modalFile}>
                     <Ionicons
@@ -988,4 +1025,11 @@ const styles = StyleSheet.create({
   },
   memberNames: { color: "#e0f2f1", fontSize: 12, marginLeft: 6 },
   icon: { marginLeft: 12 },
+  fileName: {
+    flex: 1,
+    color: "#111",
+    fontSize: 13,
+    maxWidth: 140,
+  },
+
 });

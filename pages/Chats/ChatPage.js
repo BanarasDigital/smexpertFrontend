@@ -558,7 +558,7 @@ export default function ChatScreen({ navigation, route }) {
           uri,
           name,
           type,
-        }); 
+        });
       });
 
 
@@ -819,37 +819,34 @@ export default function ChatScreen({ navigation, route }) {
           {fileAtt.map((att, idx) => (
             <View
               key={`file-${idx}`}
-              style={[styles.messageBubble, bubbleStyle, { padding: 0 }]}
+              style={[
+                styles.fileBubble,
+                isMe ? styles.myFileBubble : styles.theirFileBubble
+              ]}
             >
-              <View
-                style={[
-                  styles.fileTile,
-                  isMe ? styles.mediaMine : styles.mediaTheirs,
-                ]}
-              >
-                <Ionicons
-                  name="document-attach-outline"
-                  size={24}
-                  color="#333"
-                />
+              <View style={styles.fileRow}>
+                <Ionicons name="document-text-outline" size={26} color="#555" />
+
                 <Text style={styles.fileName} numberOfLines={1}>
                   {att.name}
                 </Text>
+
                 <TouchableOpacity onPress={() => downloadAndOpen(att.url, att.name)}>
-                  <Text style={styles.fileOpen}>Download</Text>
+                  <Ionicons name="download-outline" size={24} color="#075E54" />
                 </TouchableOpacity>
               </View>
 
-              <Text
-                style={[
-                  styles.timeText,
-                  { paddingHorizontal: 8, paddingBottom: 6 },
-                ]}
-              >
-                {new Date(msg.createdAt).toLocaleTimeString()}
+              {/* Time inside bubble like WhatsApp */}
+              <Text style={styles.fileTime}>
+                {new Date(msg.createdAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </Text>
             </View>
           ))}
+
+
 
         </View>
         {isMe && renderAvatar(msg)}
@@ -1349,5 +1346,46 @@ const styles = StyleSheet.create({
   tickIcon: {
     marginLeft: 4,
   },
+  fileBubble: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginTop: 6,
+    maxWidth: 240,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+
+  myFileBubble: {
+    alignSelf: "flex-end",
+    borderBottomRightRadius: 0,
+  },
+
+  theirFileBubble: {
+    alignSelf: "flex-start",
+    borderBottomLeftRadius: 0,
+  },
+
+  fileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  fileName: {
+    flex: 1,
+    fontSize: 14,
+    color: "#111",
+    maxWidth: 150,
+  },
+
+  fileTime: {
+    fontSize: 10,
+    color: "#777",
+    alignSelf: "flex-end",
+    marginTop: 4,
+  }
+
 
 });
