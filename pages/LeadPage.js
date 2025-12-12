@@ -531,25 +531,31 @@ export default function LeadPage({ navigation }) {
         () => processedLeads.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
         [processedLeads, page]
     );
-    const statusCounts = useMemo(() => {
-        const base = {
-            new: 0,
-            in_progress: 0,
-            interested: 0,
-            follow_up: 0,
-            converted: 0,
-            dropped: 0,
-            unassigned: 0,
-            not_interested: 0,
-        };
+const statusCounts = useMemo(() => {
+    const counts = {
+        new: 0,
+        in_progress: 0,
+        interested: 0,
+        follow_up: 0,
+        converted: 0,
+        dropped: 0,
+        not_interested: 0,
+        unassigned: 0,
+    };
 
-        leads.forEach((l) => {
-            if (!l.assignedTo) base.unassigned += 1;
-            if (base[l.status] !== undefined) base[l.status] += 1;
-        });
+    leads.forEach((lead) => {
+        const status = lead.status;
+        if (counts[status] !== undefined) {
+            counts[status] += 1;
+        }
+        if (!lead.assignedTo) {
+            counts.unassigned += 1;
+        }
+    });
 
-        return base;
-    }, [leads]);
+    return counts;
+}, [leads]);
+
     const renderAnalyticsRows = () => (
         <View style={{ marginTop: 10, marginBottom: 8 }}>
             {STATUS_ROWS.map((row, idx) => (

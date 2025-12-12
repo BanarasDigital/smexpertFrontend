@@ -63,17 +63,21 @@ export default function LeadUserPage() {
 
   const pageSize = 20;
 
-  const fetchLeads = async () => {
-    setLoading(true);
-    const res = await apiGet(`/lead/user/${userId}`, { page, limit: pageSize });
-    if (res?.success) {
-      setLeads(res.leads || []);
-      setPage(res.page || 1);
-      setPages(res.pages || 1);
-      setTotal(res.total || 0);
-    }
-    setLoading(false);
-  };
+const fetchLeads = async () => {
+  setLoading(true);
+
+  const res = await apiGet(`/lead/user/${userId}?page=${page}&limit=${pageSize}`);
+
+  if (res?.success) {
+    setLeads(res.leads || []);
+    setPage(res.page || 1);
+    setPages(res.pages || 1);
+    setTotal(res.total || 0);
+  }
+
+  setLoading(false);
+};
+
 
   useEffect(() => {
     fetchLeads();
@@ -171,30 +175,36 @@ const handleImport = async () => {
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
 
-    const freshToken = await checkSession();
-    if (!freshToken) return Alert.alert("Session expired");
+    const token = await checkSession();
+    if (!token) return Alert.alert("Session expired");
 
     const importUrl = `${API_BASE_URL}/lead/import/${user.branch}/${user._id}`;
 
     const res = await fetch(importUrl, {
       method: "POST",
-      headers: { Authorization: `Bearer ${freshToken}` },
+      headers: { Authorization: `Bearer ${token}` },
       body: formData,
     });
 
     const json = await res.json();
+    console.log("IMPORT RESULT:", json);
+
+    if (!json.success) {
+      return Alert.alert("Import Failed", json.message || "Something went wrong");
+    }
 
     Alert.alert(
-      "Import Result",
-      `Imported: ${json.imported}\nUpdated: ${json.updated}\nFailed: ${json.failed}`
+      "Import Summary",
+      `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`
     );
-
     fetchLeads();
+
   } catch (err) {
     console.log("IMPORT ERROR:", err);
     Alert.alert("Error", "Import failed.");
   }
 };
+
 
   const userName = user?.name || user?.fullName || "User";
 
