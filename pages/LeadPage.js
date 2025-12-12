@@ -221,40 +221,44 @@ export default function LeadPage({ navigation }) {
                 return;
             }
 
+            // 🔥 Normalize URI (fixes Android)
+            const normalizedUri =
+                file.uri.startsWith("file://") ? file.uri.replace("file://", "") : file.uri;
+
             const formData = new FormData();
             formData.append("file", {
-                uri: file.uri,
+                uri: normalizedUri,
                 name: file.name || "import.xlsx",
                 type:
                     file.mimeType ||
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             });
 
-            const freshToken = await checkSession();
-            if (!freshToken) return Alert.alert("Session expired");
+            // 🔥 Use Axios form upload
+            const json = await apiPostForm("/lead/import", formData);
 
-            const res = await fetch(`${API_BASE_URL}/lead/import`, {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${freshToken}`,
-                    Accept: "application/json",
-                },
-                body: formData,
-            });
-
-            const json = await res.json();
+            if (!json || !json.success) {
+                return Alert.alert(
+                    "Import Failed",
+                    json?.message || "Something went wrong while importing."
+                );
+            }
 
             Alert.alert(
                 "Import Summary",
-                `Imported: ${json.imported}\nUpdated: ${json.updated}\nFailed: ${json.failed}`
+                `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`
             );
 
-            fetchLeads();
+            fetchLeads(); // refresh DB data
+
         } catch (err) {
             console.log("IMPORT ERROR:", err);
             Alert.alert("Error", "Failed to import leads.");
         }
     };
+
+
+
 
     const handleTemplate = async () => {
         try {

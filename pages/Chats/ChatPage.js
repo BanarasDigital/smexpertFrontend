@@ -31,7 +31,9 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { API_BASE_URL } from "../../config";
 import ChatSkeleton from "../../component/ChatSkeleton";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
+
+import { File, Directory } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as IntentLauncher from "expo-intent-launcher";
 import mime from "mime";
@@ -191,53 +193,80 @@ const normalizePickerAsset = (asset) => {
   };
 };
 
-
 const normalizeServerAttachment = (raw) => {
   if (!raw) return null;
 
-  // If backend sends simple string
+  let rawUrl = "";
+
   if (typeof raw === "string") {
-    const url = getSafeUrl(raw);
-    const name = url.split("/").pop();
-    const type = guessMimeFromName(name);
-    return { url, name, type };
+    rawUrl = raw;
+  } else {
+    rawUrl =
+      raw.url ||
+      raw.path ||
+      raw.filePath ||
+      raw.file ||
+      raw.location ||
+      "";
   }
 
-  // If backend sends an object
-  const url = getSafeUrl(raw.url || raw.path || raw.filePath || "");
-  const name = raw.name || url.split("/").pop();
-  const type = raw.type || guessMimeFromName(name);
+  const finalUrl = getSafeUrl(rawUrl);
 
-  return { url, name, type };
+  if (!finalUrl) return null;
+
+  const name = raw?.name || finalUrl.split("/").pop();
+  const type = guessMimeFromName(name);
+
+  return {
+    url: finalUrl,
+    uri: finalUrl, // IMPORTANT FIX
+    name,
+    type,
+  };
 };
 
+const toBase64 = (buffer) => {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+
+  return global.btoa(binary);
+};
 
 const downloadAndOpen = async (url, fileName) => {
   try {
-    const fileUri = FileSystem.documentDirectory + fileName;
-
-    const downloadRes = await FileSystem.downloadAsync(url, fileUri);
-    if (!downloadRes || !downloadRes.uri) {
-      Alert.alert("Error", "Download failed.");
+    if (!url) {
+      Alert.alert("Error", "File URL missing.");
       return;
     }
 
-    const mimeType = mime.getType(fileName);
+    const safeUrl = getSafeUrl(url);
+    const finalName =
+      fileName || safeUrl.split("/").pop() || `file-${Date.now()}`;
 
+    const fileUri = FileSystem.documentDirectory + finalName;
 
-    if (Platform.OS === "ios") {
-      await Sharing.shareAsync(downloadRes.uri, { mimeType });
-    } else {
-      await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
-        data: downloadRes.uri,
-        flags: 1,
-        type: mimeType,
-      });
-    }
+    // Download file → using legacy API (Expo recommends this in v54)
+    const result = await FileSystem.downloadAsync(safeUrl, fileUri);
+
+    const mimeType = guessMimeFromName(finalName);
+
+    // 🚀 SAFE, NO CRASH: Use Sharing to open/export
+    await Sharing.shareAsync(result.uri, {
+      mimeType,
+      dialogTitle: "Open or Save File",
+    });
+
   } catch (err) {
-    Alert.alert("Error", "Unable to open file.");
+    console.log("DOWNLOAD ERROR →", err);
+    Alert.alert("Error", "Unable to download this file.");
   }
 };
+
 
 const getAnyAvatarField = (obj) =>
   obj?.profileImage ||
@@ -584,9 +613,6 @@ export default function ChatScreen({ navigation, route }) {
         Alert.alert("Failed", data?.message || "Upload error.");
         return;
       }
-
-      console.log("✅ UPLOAD SUCCESS → ", data);
-
       setMessage("");
       setAttachments([]);
 
@@ -698,51 +724,78 @@ export default function ChatScreen({ navigation, route }) {
     setPreviewVisible(true);
   };
 
-  const MediaGrid = ({ items, isMine }) => (
-    <View style={styles.gridWrap}>
-      {items.map((att, i) => {
-        const isImg = isImage(att.type, att.url);
-        const isVid = isVideo(att.type, att.url);
-        const onPress = () => openPreview(items, i);
-        if (isImg) {
-          return (
-            <Pressable key={i} onPress={onPress} style={styles.gridItem}>
-              <Image
+const MediaGrid = ({ items, isMine }) => (
+  <View style={styles.gridWrap}>
+    {items.map((att, i) => {
+      const isImg = isImage(att.type, att.url);
+      const isVid = isVideo(att.type, att.url);
+      const onPress = () => openPreview(items, i);
+
+      // IMAGE BLOCK
+      if (isImg) {
+        return (
+          <Pressable key={i} onPress={onPress} style={styles.gridItem}>
+            <Image
+              source={{ uri: att.url }}
+              style={[
+                styles.gridImage,
+                isMine ? styles.mediaMine : styles.mediaTheirs,
+              ]}
+            />
+
+            {/* Download button on image */}
+            <TouchableOpacity
+              style={styles.downloadBtn}
+              onPress={() =>
+                downloadAndOpen(att.url, att.name || `image-${Date.now()}.jpg`)
+              }
+            >
+              <Ionicons name="download-outline" size={24} color="#fff" />
+            </TouchableOpacity>
+          </Pressable>
+        );
+      }
+
+      // VIDEO BLOCK
+      if (isVid) {
+        return (
+          <Pressable key={i} onPress={onPress} style={styles.gridItem}>
+            <View
+              style={[
+                styles.gridVideoBox,
+                isMine ? styles.mediaMine : styles.mediaTheirs,
+              ]}
+            >
+              <Video
                 source={{ uri: att.url }}
-                style={[
-                  styles.gridImage,
-                  isMine ? styles.mediaMine : styles.mediaTheirs,
-                ]}
+                style={styles.gridVideo}
+                resizeMode="cover"
+                useNativeControls
               />
-            </Pressable>
-          );
-        }
-        if (isVid) {
-          return (
-            <Pressable key={i} onPress={onPress} style={styles.gridItem}>
-              <View
-                style={[
-                  styles.gridVideoBox,
-                  isMine ? styles.mediaMine : styles.mediaTheirs,
-                ]}
-              >
-                <Video
-                  source={{ uri: att.url }}
-                  style={styles.gridVideo}
-                  resizeMode="cover"
-                  useNativeControls
-                />
-                <View style={styles.playOverlay}>
-                  <Ionicons name="play-circle" size={40} color="#fff" />
-                </View>
+
+              <View style={styles.playOverlay}>
+                <Ionicons name="play-circle" size={40} color="#fff" />
               </View>
-            </Pressable>
-          );
-        }
-        return null;
-      })}
-    </View>
-  );
+
+              {/* Download button on video */}
+              <TouchableOpacity
+                style={styles.downloadBtn}
+                onPress={() =>
+                  downloadAndOpen(att.url, att.name || `video-${Date.now()}.mp4`)
+                }
+              >
+                <Ionicons name="download-outline" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        );
+      }
+
+      return null;
+    })}
+  </View>
+);
+
 
   const renderMessage = (msg) => {
     const isMe =
@@ -831,9 +884,14 @@ export default function ChatScreen({ navigation, route }) {
                   {att.name}
                 </Text>
 
-                <TouchableOpacity onPress={() => downloadAndOpen(att.url, att.name)}>
+                <TouchableOpacity
+                  onPress={() =>
+                    downloadAndOpen(att.url, att.name || att.url.split("/").pop())
+                  }
+                >
                   <Ionicons name="download-outline" size={24} color="#075E54" />
                 </TouchableOpacity>
+
               </View>
 
               {/* Time inside bubble like WhatsApp */}
@@ -1095,14 +1153,21 @@ export default function ChatScreen({ navigation, route }) {
                       size={48}
                       color="#fff"
                     />
+
                     <Text style={styles.modalFileName} numberOfLines={1}>
-                      {current.name || (uri || "").split("/").pop()}
+                      {current.name || (uri || "").split("/").pop() || "file"}
                     </Text>
-                    <TouchableOpacity onPress={() => downloadAndOpen(uri, current.name)}>
+
+                    <TouchableOpacity
+                      onPress={() =>
+                        downloadAndOpen(uri, current.name || uri.split("/").pop())
+                      }
+                    >
                       <Text style={styles.modalOpenBtn}>Download</Text>
                     </TouchableOpacity>
 
                   </View>
+
                 );
               })()}
           </View>
@@ -1385,7 +1450,16 @@ const styles = StyleSheet.create({
     color: "#777",
     alignSelf: "flex-end",
     marginTop: 4,
-  }
+  },
+  downloadBtn: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    padding: 6,
+    borderRadius: 20,
+    zIndex: 10,
+  },
 
 
 });

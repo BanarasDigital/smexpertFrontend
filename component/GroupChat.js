@@ -31,9 +31,11 @@ import { API_BASE_URL } from "../config";
 import { DataContext } from "../context";
 import GroupTopBar from "./GroupTopBar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
+import { File, Directory } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as IntentLauncher from "expo-intent-launcher";
+import mime from "mime";
 const isImage = (t = "", url = "") =>
   /image\//i.test(t) || /\.(jpe?g|png|gif|webp|heic|heif|svg)$/i.test(url);
 const isVideo = (t = "", url = "") =>
@@ -52,7 +54,11 @@ const guessMimeFromName = (name = "") => {
     return "audio/*";
   return "application/octet-stream";
 };
-
+const getSafeUrl = (url = "") => {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  return `${API_BASE_URL}/${url.replace(/^\/+/, "")}`;
+};
 const formatClock = (d) =>
   new Date(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -221,22 +227,34 @@ export default function GroupChat({ navigation, route }) {
       ]);
     }
   };
-  const downloadFile = async (url) => {
+
+
+  const downloadAndOpen = async (url, fileName) => {
     try {
-      const fileUri = FileSystem.documentDirectory + url.split("/").pop();
-
-      const downloaded = await FileSystem.downloadAsync(url, fileUri);
-
-      if (Platform.OS === "android") {
-        await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
-          data: downloaded.uri,
-          flags: 1,
-        });
-      } else {
-        await Sharing.shareAsync(downloaded.uri);
+      if (!url) {
+        Alert.alert("Error", "File URL missing.");
+        return;
       }
+
+      const safeUrl = getSafeUrl(url);
+      const finalName =
+        fileName || safeUrl.split("/").pop() || `file-${Date.now()}`;
+
+      const fileUri = FileSystem.documentDirectory + finalName;
+
+      // Download file
+      const result = await FileSystem.downloadAsync(safeUrl, fileUri);
+
+      const mimeType = guessMimeFromName(finalName);
+
+      // Open via share sheet — SAFE for Android + iOS
+      await Sharing.shareAsync(result.uri, {
+        mimeType,
+        dialogTitle: "Open or Save File",
+      });
     } catch (err) {
-      Alert.alert("Download failed", err.message);
+      console.log("DOWNLOAD ERROR →", err);
+      Alert.alert("Error", "Unable to download this file.");
     }
   };
 
@@ -403,66 +421,83 @@ export default function GroupChat({ navigation, route }) {
           {item.content ? (
             <Text style={styles.msgText}>{item.content}</Text>
           ) : null}
-
-          {/* Media grid */}
           {media.length > 0 ? (
             <View style={styles.mediaWrap}>
               {media.map((m, i) => {
                 const uri = m.url;
+
+                // IMAGE
                 if (isImage(m.type, uri)) {
                   return (
-                    <Pressable
-                      key={`m-${i}`}
-                      onPress={() => openPreview(media, i)}
-                      style={styles.mediaItem}
-                    >
-                      <Image source={{ uri }} style={styles.mediaImg} />
-                    </Pressable>
-                  );
-                }
-                if (isVideo(m.type, uri)) {
-                  return (
-                    <Pressable
-                      key={`m-${i}`}
-                      onPress={() => openPreview(media, i)}
-                      style={styles.mediaItem}
-                    >
-                      <View style={styles.videoBox}>
-                        <Video
-                          source={{ uri }}
-                          style={styles.video}
-                          resizeMode="cover"
-                          useNativeControls
-                        />
-                        <View style={styles.playOverlay}>
-                          <Ionicons name="play-circle" size={40} color="#fff" />
-                        </View>
-                      </View>
-                    </Pressable>
-                  );
-                }
-                if (isAudio(m.type, uri)) {
-                  return (
-                    <View key={`a-${i}`} style={styles.audioRow}>
+                    <View key={`m-${i}`} style={styles.mediaItem}>
+                      <Pressable onPress={() => openPreview(media, i)}>
+                        <Image source={{ uri }} style={styles.mediaImg} />
+                      </Pressable>
+
                       <TouchableOpacity
-                        onPress={() => playAudio(uri)}
-                        style={styles.audioPlay}
+                        style={styles.downloadBtn}
+                        onPress={() => downloadAndOpen(uri, m.name)}
                       >
-                        <Ionicons name="play" size={18} color="#fff" />
+                        <Ionicons name="download-outline" size={22} color="#fff" />
                       </TouchableOpacity>
-                      <Text style={styles.audioName} numberOfLines={1}>
-                        {m.name}
-                      </Text>
                     </View>
                   );
                 }
+
+                // VIDEO  (RESTORED ORIGINAL PREVIEW)
+                if (isVideo(m.type, uri)) {
+                  return (
+                    <View key={`m-${i}`} style={styles.mediaItem}>
+                      <Pressable onPress={() => openPreview(media, i)} style={{ flex: 1 }}>
+                        <View style={styles.videoBox}>
+                          <Video
+                            source={{ uri }}
+                            style={styles.video}
+                            resizeMode="cover"
+                            useNativeControls
+                          />
+                          <View style={styles.playOverlay}>
+                            <Ionicons name="play-circle" size={40} color="#fff" />
+                          </View>
+                        </View>
+                      </Pressable>
+
+                      {/* DOWNLOAD ICON */}
+                      <TouchableOpacity
+                        style={styles.downloadBtn}
+                        onPress={() =>
+                          downloadAndOpen(uri, m.name || `video-${Date.now()}.mp4`)
+                        }
+                      >
+                        <Ionicons name="download-outline" size={22} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }
+
+                // AUDIO
+                if (isAudio(m.type, uri)) {
+                  return (
+                    <View key={`a-${i}`} style={styles.audioRow}>
+                      <TouchableOpacity onPress={() => playAudio(uri)} style={styles.audioPlay}>
+                        <Ionicons name="play" size={18} color="#fff" />
+                      </TouchableOpacity>
+
+                      <Text style={styles.audioName} numberOfLines={1}>{m.name}</Text>
+
+                      <TouchableOpacity onPress={() => downloadAndOpen(uri, m.name)}>
+                        <Ionicons name="download-outline" size={22} color="#0B6E4F" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }
+
                 return null;
               })}
             </View>
           ) : null}
 
 
-          {/* File tiles */}
           {files.map((f, i) => (
             <View key={`f-${i}`} style={styles.fileTile}>
               <Ionicons name="document-attach-outline" size={24} color="#333" />
@@ -475,7 +510,8 @@ export default function GroupChat({ navigation, route }) {
                 {f.name}
               </Text>
 
-              <TouchableOpacity onPress={() => downloadFile(f.url)}>
+              <TouchableOpacity onPress={() => downloadAndOpen(f.url, f.name)}>
+
                 <Ionicons name="download-outline" size={24} color="#0B6E4F" />
               </TouchableOpacity>
             </View>
@@ -796,10 +832,8 @@ export default function GroupChat({ navigation, route }) {
                       <Ionicons name="document-text-outline" size={60} color="#fff" />
                       <Text style={{ color: "#fff", marginTop: 10 }}>{it.name}</Text>
 
-                      <TouchableOpacity
-                        onPress={() => downloadFile(uri)}
-                        style={{ marginTop: 14 }}
-                      >
+                      <TouchableOpacity onPress={() => downloadAndOpen(f.url, f.name)}>
+
                         <Ionicons name="download-outline" size={40} color="#4ADE80" />
                       </TouchableOpacity>
                     </View>
@@ -1030,6 +1064,15 @@ const styles = StyleSheet.create({
     color: "#111",
     fontSize: 13,
     maxWidth: 140,
+  },
+  downloadBtn: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    padding: 6,
+    borderRadius: 20,
+    zIndex: 20,
   },
 
 });
