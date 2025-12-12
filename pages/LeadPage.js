@@ -151,13 +151,21 @@ export default function LeadPage({ navigation }) {
         try {
             setLoading(true);
             const res = await apiGet("/get-lead");
-            if (res?.leads) setLeads(res.leads);
+
+            const list =
+                res?.leads ||
+                res?.data?.leads ||
+                res?.data ||
+                [];
+
+            setLeads(list);
         } catch {
             Alert.alert("Error", "Unable to load leads.");
         } finally {
             setLoading(false);
         }
     };
+
 
     useEffect(() => {
         fetchLeads();
@@ -221,26 +229,21 @@ export default function LeadPage({ navigation }) {
                 return;
             }
 
-            // 🔥 Normalize URI (fixes Android)
-            const normalizedUri =
-                file.uri.startsWith("file://") ? file.uri.replace("file://", "") : file.uri;
-
             const formData = new FormData();
             formData.append("file", {
-                uri: normalizedUri,
+                uri: file.uri,
                 name: file.name || "import.xlsx",
                 type:
                     file.mimeType ||
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             });
 
-            // 🔥 Use Axios form upload
             const json = await apiPostForm("/lead/import", formData);
 
-            if (!json || !json.success) {
+            if (!json?.success) {
                 return Alert.alert(
                     "Import Failed",
-                    json?.message || "Something went wrong while importing."
+                    json?.message || "Something went wrong"
                 );
             }
 
@@ -248,17 +251,14 @@ export default function LeadPage({ navigation }) {
                 "Import Summary",
                 `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`
             );
-
-            fetchLeads(); // refresh DB data
+            await fetchLeads();
+            setLeads(prev => [...prev]);
 
         } catch (err) {
             console.log("IMPORT ERROR:", err);
             Alert.alert("Error", "Failed to import leads.");
         }
     };
-
-
-
 
     const handleTemplate = async () => {
         try {
@@ -296,11 +296,34 @@ export default function LeadPage({ navigation }) {
                 return;
             }
 
-            // Build dynamic filename
+            // -----------------------------
+            // 1. CLEAN PARAM VALUES
+            // -----------------------------
+            const branchParam = exportBranch ? exportBranch : "";
+            const userParam = exportAssignedTo ? exportAssignedTo : "";
+
+            // -----------------------------
+            // 2. BUILD QUERY ONLY WHEN NEEDED
+            // -----------------------------
+            let query = [];
+
+            if (branchParam) query.push(`branchId=${branchParam}`);
+            if (userParam) query.push(`assignedTo=${userParam}`);
+
+            const queryString = query.length > 0 ? `?${query.join("&")}` : "";
+
+            // -----------------------------
+            // 3. BUILD URL
+            // -----------------------------
+            const downloadUrl = `${API_BASE_URL}/lead/export${queryString}`;
+
+            // -----------------------------
+            // 4. DYNAMIC FILENAME
+            // -----------------------------
             let filename = "leads.xlsx";
 
-            const branchObj = branchList.find(b => b._id === exportBranch);
-            const userObj = filteredUsers.find(u => u._id === exportAssignedTo);
+            const branchObj = branchList.find(b => b._id === branchParam);
+            const userObj = filteredUsers.find(u => u._id === userParam);
 
             if (branchObj && userObj) {
                 filename = `${branchObj.name}_${userObj.name}.leads.xlsx`;
@@ -310,18 +333,23 @@ export default function LeadPage({ navigation }) {
                 filename = `${userObj.name}.leads.xlsx`;
             }
 
-            // Safe filename formatting
+            // Sanitize filename
             filename = filename.replace(/\s+/g, "-").replace(/[^\w.-]/g, "");
-
-            const params = `?branchId=${exportBranch}&assignedTo=${exportAssignedTo}`;
-            const downloadUrl = `${API_BASE_URL}/lead/export${params}`;
 
             const fileUri = FileSystem.documentDirectory + filename;
 
+            // -----------------------------
+            // 5. DOWNLOAD FILE
+            // -----------------------------
             const { uri } = await FileSystem.downloadAsync(downloadUrl, fileUri, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
             });
 
+            // -----------------------------
+            // 6. SHARE / SAVE FILE
+            // -----------------------------
             if (await Sharing.isAvailableAsync()) {
                 await Sharing.shareAsync(uri);
             } else {
