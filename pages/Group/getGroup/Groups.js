@@ -30,11 +30,11 @@ export default function GroupConversation({ navigation }) {
     }
   }, [apiGet]);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchGroups();
-    }, [fetchGroups])
-  );
+ useFocusEffect(
+  React.useCallback(() => {
+    fetchGroups(); 
+  }, [fetchGroups])
+);
   /** ✅ Render Group Row **/
   const renderItem = ({ item }) => {
     const isAdmin = String(item.admin) === String(user?._id);
@@ -111,8 +111,6 @@ export default function GroupConversation({ navigation }) {
         <ChatListSkeleton />
       ) : (
         <FlatList
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
           data={groups}
           keyExtractor={(item) => item._id}
           renderItem={renderItem}

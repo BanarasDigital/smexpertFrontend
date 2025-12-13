@@ -170,60 +170,60 @@ export default function ManageGroupMembers({ route, navigation }) {
   // };
 
   // ✅ Pick image from gallery
-  const pickFromGallery = useCallback(async () => {
-    try {
-      // ✅ Request permission for both iOS and Android
-      const { status, canAskAgain, accessPrivileges } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+const pickFromGallery = useCallback(async () => {
+  try {
+    // ✅ Request permission for both iOS and Android
+    const { status, canAskAgain, accessPrivileges } =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (status !== "granted") {
-        if (canAskAgain) {
-          Alert.alert(
-            "Permission Required",
-            "We need access to your photos to select a group image."
-          );
-        } else {
-          Alert.alert(
-            "Permission Denied",
-            "Please enable photo access in settings to upload images."
-          );
-        }
-        return;
+    if (status !== "granted") {
+      if (canAskAgain) {
+        Alert.alert(
+          "Permission Required",
+          "We need access to your photos to select a group image."
+        );
+      } else {
+        Alert.alert(
+          "Permission Denied",
+          "Please enable photo access in settings to upload images."
+        );
       }
-
-      // ✅ Handle limited library (iOS 14+)
-      if (
-        Platform.OS === "ios" &&
-        accessPrivileges === "limited" &&
-        ImagePicker.presentLimitedLibraryPickerAsync
-      ) {
-        try {
-          await ImagePicker.presentLimitedLibraryPickerAsync();
-        } catch (err) {
-          console.warn("Limited library picker error:", err);
-        }
-      }
-
-      // ✅ Open Image Gallery
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.9,
-      });
-
-      if (result.canceled || !result.assets?.length) return;
-
-      const uri = result.assets[0].uri;
-      setImageUri(uri);
-
-      // ✅ Upload selected image
-      // await uploadGroupImage(uri);
-    } catch (error) {
-      console.error("pickFromGallery error:", error);
-      Alert.alert("Error", "Failed to pick image from gallery.");
+      return;
     }
-  }, []);
+
+    // ✅ Handle limited library (iOS 14+)
+    if (
+      Platform.OS === "ios" &&
+      accessPrivileges === "limited" &&
+      ImagePicker.presentLimitedLibraryPickerAsync
+    ) {
+      try {
+        await ImagePicker.presentLimitedLibraryPickerAsync();
+      } catch (err) {
+        console.warn("Limited library picker error:", err);
+      }
+    }
+
+    // ✅ Open Image Gallery
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.9,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+
+    const uri = result.assets[0].uri;
+    setImageUri(uri);
+
+    // ✅ Upload selected image
+    // await uploadGroupImage(uri);
+  } catch (error) {
+    console.error("pickFromGallery error:", error);
+    Alert.alert("Error", "Failed to pick image from gallery.");
+  }
+}, []);
 
 
   // ✅ Pick image from camera
@@ -246,37 +246,37 @@ export default function ManageGroupMembers({ route, navigation }) {
     // await uploadGroupImage(uri);
   }, []);
 
-  const pickImage = useCallback(() => {
-    if (Platform.OS === "ios") {
-      // ✅ iOS: Native ActionSheet
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ["Cancel", "Choose from Gallery", "Take Photo"],
-          cancelButtonIndex: 0,
-          userInterfaceStyle: "light",
-        },
-        async (buttonIndex) => {
-          try {
-            if (buttonIndex === 1) {
-              await pickFromGallery();
-            } else if (buttonIndex === 2) {
-              await pickFromCamera();
-            }
-          } catch (err) {
-            console.error("Image selection error:", err);
-            Alert.alert("Error", "Unable to pick image.");
+const pickImage = useCallback(() => {
+  if (Platform.OS === "ios") {
+    // ✅ iOS: Native ActionSheet
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        options: ["Cancel", "Choose from Gallery", "Take Photo"],
+        cancelButtonIndex: 0,
+        userInterfaceStyle: "light", 
+      },
+      async (buttonIndex) => {
+        try {
+          if (buttonIndex === 1) {
+            await pickFromGallery();
+          } else if (buttonIndex === 2) {
+            await pickFromCamera();
           }
+        } catch (err) {
+          console.error("Image selection error:", err);
+          Alert.alert("Error", "Unable to pick image.");
         }
-      );
-    } else {
-      // ✅ Android: Custom Alert dialog fallback
-      Alert.alert("Select Image Source", "Choose an option", [
-        { text: "📁 Gallery", onPress: async () => await pickFromGallery() },
-        { text: "📷 Camera", onPress: async () => await pickFromCamera() },
-        { text: "Cancel", style: "cancel" },
-      ]);
-    }
-  }, [pickFromGallery, pickFromCamera]);
+      }
+    );
+  } else {
+    // ✅ Android: Custom Alert dialog fallback
+    Alert.alert("Select Image Source", "Choose an option", [
+      { text: "📁 Gallery", onPress: async () => await pickFromGallery() },
+      { text: "📷 Camera", onPress: async () => await pickFromCamera() },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+}, [pickFromGallery, pickFromCamera]);
 
   /** Save Changes **/
   const handleSave = async () => {
@@ -583,8 +583,6 @@ export default function ManageGroupMembers({ route, navigation }) {
 
       <FlatList
         ListHeaderComponent={Header}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
         data={data}
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => {
@@ -641,7 +639,7 @@ export default function ManageGroupMembers({ route, navigation }) {
                             "Removed",
                             `${item.name} removed from group.`
                           );
-                          fetchGroupData(true);
+                          fetchGroupData(true); 
                         } else {
                           throw new Error("Remove failed");
                         }

@@ -36,7 +36,6 @@ import { File, Directory } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as IntentLauncher from "expo-intent-launcher";
 import mime from "mime";
-import KeyboardWrapper from "./KeyboardWrapper";
 const isImage = (t = "", url = "") =>
   /image\//i.test(t) || /\.(jpe?g|png|gif|webp|heic|heif|svg)$/i.test(url);
 const isVideo = (t = "", url = "") =>
@@ -526,7 +525,10 @@ export default function GroupChat({ navigation, route }) {
   };
 
   return (
-    <KeyboardWrapper extraScrollHeight={100}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1, backgroundColor: "#ECE5DD" }}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
     >
       <View style={styles.topBar}>
         {/* Back Button */}
@@ -671,8 +673,6 @@ export default function GroupChat({ navigation, route }) {
           <FlatList
             data={filteredUsers}
             keyExtractor={(item) => item._id}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={{ flexDirection: "row", alignItems: "center", padding: 8 }}
@@ -859,7 +859,7 @@ export default function GroupChat({ navigation, route }) {
           </View>
         </View>
       </Modal>
-    </KeyboardWrapper>
+    </KeyboardAvoidingView>
   );
 }
 

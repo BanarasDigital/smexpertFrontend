@@ -39,7 +39,6 @@ import * as IntentLauncher from "expo-intent-launcher";
 import mime from "mime";
 
 import { Video } from "expo-av";
-import KeyboardWrapper from "../../component/KeyboardWrapper";
 const BAD_URLS = new Set(["null", "undefined", "about:blank", ""]);
 const isBadBlob = (v = "") => /^blob:null/i.test(v);
 const isTruthyUrl = (v) => {
@@ -914,7 +913,10 @@ const MediaGrid = ({ items, isMine }) => (
   };
 
   return (
-    <KeyboardWrapper extraScrollHeight={100}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "height" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
     >
       {/* Header */}
       <View style={styles.topBar}>
@@ -1200,7 +1202,7 @@ const MediaGrid = ({ items, isMine }) => (
           </View>
         </View>
       </Modal>
-    </KeyboardWrapper>
+    </KeyboardAvoidingView>
   );
 }
 
