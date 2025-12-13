@@ -18,7 +18,6 @@ import LeadFormModal from "../component/LeadFormModal";
 import LeadTable from "../component/LeadTable";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import { useFocusEffect } from "@react-navigation/native";
 const STATUS_STYLES = {
     new: { bg: "#E5F3FF", text: "#0A84FF", label: "New" },
     in_progress: { bg: "#EDE9FE", text: "#5B21B6", label: "In Progress" },
@@ -84,7 +83,6 @@ export default function LeadPage({ navigation }) {
     const [selectedSegment, setSelectedSegment] = useState("");
 
     const [statusFilter, setStatusFilter] = useState("");
-    const isImportingRef = React.useRef(false);
 
     const [page, setPage] = useState(1);
     const [sortKey, setSortKey] = useState("createdAt");
@@ -149,37 +147,16 @@ export default function LeadPage({ navigation }) {
 
     const [sourceModalVisible, setSourceModalVisible] = useState(false);
     const [segmentModalVisible, setSegmentModalVisible] = useState(false);
-    const normalizeAssignedTo = (at) => {
-        if (
-            at === null ||
-            at === undefined ||
-            at === "" ||
-            (Array.isArray(at) && at.length === 0) ||
-            (typeof at === "object" &&
-                !Array.isArray(at) &&
-                Object.keys(at).length === 0)
-        ) {
-            return null;
-        }
-
-        return at;
-    };
-
-
     const fetchLeads = async () => {
         try {
             setLoading(true);
             const res = await apiGet("/get-lead");
 
-            let list =
+            const list =
                 res?.leads ||
                 res?.data?.leads ||
                 res?.data ||
                 [];
-            list = list.map(l => ({
-                ...l,
-                assignedTo: normalizeAssignedTo(l.assignedTo)
-            }));
 
             setLeads(list);
         } catch {
@@ -189,13 +166,10 @@ export default function LeadPage({ navigation }) {
         }
     };
 
-    useFocusEffect(
-        React.useCallback(() => {
-            if (isImportingRef.current) return;
-            fetchLeads();
-        }, [])
-    );
 
+    useEffect(() => {
+        fetchLeads();
+    }, []);
     const fetchExportData = async () => {
         try {
             const token = await checkSession();
@@ -255,9 +229,6 @@ export default function LeadPage({ navigation }) {
                 return;
             }
 
-            isImportingRef.current = true; 
-            setLoading(true);
-
             const formData = new FormData();
             formData.append("file", {
                 uri: file.uri,
@@ -269,32 +240,25 @@ export default function LeadPage({ navigation }) {
 
             const json = await apiPostForm("/lead/import", formData);
 
-            setLoading(false);
-
             if (!json?.success) {
-                isImportingRef.current = false;
-                Alert.alert("Import Failed", json?.message || "Something went wrong");
-                return;
+                return Alert.alert(
+                    "Import Failed",
+                    json?.message || "Something went wrong"
+                );
             }
-            setTimeout(async () => {
-                await fetchLeads();
-                isImportingRef.current = false;
-            }, 400);
 
             Alert.alert(
-                "Import Completed",
+                "Import Summary",
                 `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`
             );
+            await fetchLeads();
+            setLeads(prev => [...prev]);
 
         } catch (err) {
-            isImportingRef.current = false;
-            setLoading(false);
             console.log("IMPORT ERROR:", err);
             Alert.alert("Error", "Failed to import leads.");
         }
     };
-
-
 
     const handleTemplate = async () => {
         try {
@@ -331,18 +295,35 @@ export default function LeadPage({ navigation }) {
                 Alert.alert("Session expired", "Please login again.");
                 return;
             }
+
+            // -----------------------------
+            // 1. CLEAN PARAM VALUES
+            // -----------------------------
             const branchParam = exportBranch ? exportBranch : "";
             const userParam = exportAssignedTo ? exportAssignedTo : "";
+
+            // -----------------------------
+            // 2. BUILD QUERY ONLY WHEN NEEDED
+            // -----------------------------
             let query = [];
 
             if (branchParam) query.push(`branchId=${branchParam}`);
             if (userParam) query.push(`assignedTo=${userParam}`);
 
             const queryString = query.length > 0 ? `?${query.join("&")}` : "";
+
+            // -----------------------------
+            // 3. BUILD URL
+            // -----------------------------
+            const downloadUrl = `${API_BASE_URL}/lead/export${queryString}`;
+
+            // -----------------------------
+            // 4. DYNAMIC FILENAME
+            // -----------------------------
             let filename = "leads.xlsx";
 
-            const branchObj = branchList.find(b => b._id === exportBranch);
-            const userObj = filteredUsers.find(u => u._id === exportAssignedTo);
+            const branchObj = branchList.find(b => b._id === branchParam);
+            const userObj = filteredUsers.find(u => u._id === userParam);
 
             if (branchObj && userObj) {
                 filename = `${branchObj.name}_${userObj.name}.leads.xlsx`;
@@ -351,18 +332,24 @@ export default function LeadPage({ navigation }) {
             } else if (userObj) {
                 filename = `${userObj.name}.leads.xlsx`;
             }
-            filename = filename.replace(/\s+/g, "-").replace(/[^\w.-]/g, "");
 
-            const params = `?branchId=${exportBranch}&assignedTo=${exportAssignedTo}`;
-            const downloadUrl = `${API_BASE_URL}/lead/export${params}`;
+            // Sanitize filename
+            filename = filename.replace(/\s+/g, "-").replace(/[^\w.-]/g, "");
 
             const fileUri = FileSystem.documentDirectory + filename;
 
+            // -----------------------------
+            // 5. DOWNLOAD FILE
+            // -----------------------------
             const { uri } = await FileSystem.downloadAsync(downloadUrl, fileUri, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
             });
+
+            // -----------------------------
+            // 6. SHARE / SAVE FILE
+            // -----------------------------
             if (await Sharing.isAvailableAsync()) {
                 await Sharing.shareAsync(uri);
             } else {
@@ -481,15 +468,6 @@ export default function LeadPage({ navigation }) {
             setSortDir("asc");
         }
     };
-    const isUnassigned = (lead) => {
-        const at = lead.assignedTo;
-        if (!at || at === "" || (Array.isArray(at) && at.length === 0)) return true;
-        if (typeof at === "object" && !Array.isArray(at)) {
-            if (Object.keys(at).length === 0) return true;
-            if (at._id && !at.name) return true;
-        }
-        return false;
-    };
     const processedLeads = useMemo(() => {
         let arr = [...leads];
 
@@ -502,20 +480,13 @@ export default function LeadPage({ navigation }) {
                     .includes(q)
             );
         }
+
         if (selectedSource) arr = arr.filter((l) => l.leadSource === selectedSource);
         if (selectedSegment) arr = arr.filter((l) => l.segment === selectedSegment);
         if (statusFilter) {
-            arr = arr.filter((lead) => {
-                const unassigned = isUnassigned(lead);
-
-                if (statusFilter === "unassigned") {
-                    return unassigned;
-                }
-
-                if (unassigned) return false;
-
-                return lead.status === statusFilter;
-            });
+            if (statusFilter === "unassigned")
+                arr = arr.filter((l) => !l.assignedTo);
+            else arr = arr.filter((l) => l.status === statusFilter);
         }
         arr.sort((a, b) => {
             const dir = sortDir === "asc" ? 1 : -1;
@@ -561,20 +532,24 @@ export default function LeadPage({ navigation }) {
         [processedLeads, page]
     );
     const statusCounts = useMemo(() => {
-        const counts = { new: 0, in_progress: 0, interested: 0, follow_up: 0, converted: 0, dropped: 0, not_interested: 0, unassigned: 0 };
-        leads.forEach(lead => {
-            if (isUnassigned(lead)) {
-                counts.unassigned++;
-            } else if (lead.status !== "unassigned" && counts[lead.status] !== undefined) {
-                counts[lead.status]++;
-            }
+        const base = {
+            new: 0,
+            in_progress: 0,
+            interested: 0,
+            follow_up: 0,
+            converted: 0,
+            dropped: 0,
+            unassigned: 0,
+            not_interested: 0,
+        };
+
+        leads.forEach((l) => {
+            if (!l.assignedTo) base.unassigned += 1;
+            if (base[l.status] !== undefined) base[l.status] += 1;
         });
-        return counts;
+
+        return base;
     }, [leads]);
-
-
-
-
     const renderAnalyticsRows = () => (
         <View style={{ marginTop: 10, marginBottom: 8 }}>
             {STATUS_ROWS.map((row, idx) => (
@@ -670,16 +645,9 @@ export default function LeadPage({ navigation }) {
             </View>
 
             <View style={styles.toolbarRow}>
-                <TouchableOpacity
-                    style={styles.toolbarBtn}
-                    onPress={handleImport}
-                    disabled={loading}
-                >
-                    <Text style={styles.toolbarBtnText}>
-                        {loading ? "Importing..." : "Import"}
-                    </Text>
+                <TouchableOpacity style={styles.toolbarBtn} onPress={handleImport}>
+                    <Text style={styles.toolbarBtnText}>Import</Text>
                 </TouchableOpacity>
-
 
                 <TouchableOpacity
                     style={styles.toolbarBtn}
