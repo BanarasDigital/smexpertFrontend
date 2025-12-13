@@ -84,6 +84,7 @@ export default function LeadPage({ navigation }) {
     const [selectedSegment, setSelectedSegment] = useState("");
 
     const [statusFilter, setStatusFilter] = useState("");
+    const isImportingRef = React.useRef(false);
 
     const [page, setPage] = useState(1);
     const [sortKey, setSortKey] = useState("createdAt");
@@ -188,11 +189,13 @@ export default function LeadPage({ navigation }) {
         }
     };
 
-useFocusEffect(
-  React.useCallback(() => {
-    fetchLeads();
-  }, [])
-);
+    useFocusEffect(
+        React.useCallback(() => {
+            if (isImportingRef.current) return;
+            fetchLeads();
+        }, [])
+    );
+
     const fetchExportData = async () => {
         try {
             const token = await checkSession();
@@ -252,6 +255,9 @@ useFocusEffect(
                 return;
             }
 
+            isImportingRef.current = true; 
+            setLoading(true);
+
             const formData = new FormData();
             formData.append("file", {
                 uri: file.uri,
@@ -261,35 +267,33 @@ useFocusEffect(
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             });
 
-            setLoading(true);
-
             const json = await apiPostForm("/lead/import", formData);
 
             setLoading(false);
 
             if (!json?.success) {
+                isImportingRef.current = false;
                 Alert.alert("Import Failed", json?.message || "Something went wrong");
                 return;
             }
+            setTimeout(async () => {
+                await fetchLeads();
+                isImportingRef.current = false;
+            }, 400);
 
             Alert.alert(
                 "Import Completed",
-                `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`,
-                [
-                    {
-                        text: "OK",
-                        onPress: async () => {
-                            await fetchLeads();
-                        },
-                    },
-                ]
+                `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`
             );
+
         } catch (err) {
+            isImportingRef.current = false;
             setLoading(false);
             console.log("IMPORT ERROR:", err);
             Alert.alert("Error", "Failed to import leads.");
         }
     };
+
 
 
     const handleTemplate = async () => {
@@ -666,9 +670,16 @@ useFocusEffect(
             </View>
 
             <View style={styles.toolbarRow}>
-                <TouchableOpacity style={styles.toolbarBtn} onPress={handleImport}>
-                    <Text style={styles.toolbarBtnText}>Import</Text>
+                <TouchableOpacity
+                    style={styles.toolbarBtn}
+                    onPress={handleImport}
+                    disabled={loading}
+                >
+                    <Text style={styles.toolbarBtnText}>
+                        {loading ? "Importing..." : "Import"}
+                    </Text>
                 </TouchableOpacity>
+
 
                 <TouchableOpacity
                     style={styles.toolbarBtn}
