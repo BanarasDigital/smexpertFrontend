@@ -41,6 +41,14 @@ export default function LeadTable({
     const [viewModal, setViewModal] = useState(false);
 
     const [activeLead, setActiveLead] = useState(null);
+    const formatEnumLabel = (value = "") => {
+        if (!value) return "-";
+
+        return value
+            .split("_")
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
+    };
 
     const loadBranches = async () => {
         try {
@@ -175,12 +183,33 @@ export default function LeadTable({
             alert(res.message || "Bulk assign failed.");
         }
     };
+    const normalizedSearch = search.trim().toLowerCase();
+
+    const filteredLeads = leads.filter(l => {
+        if (!normalizedSearch) return true;
+
+        const name = l.personalInfo?.name?.toLowerCase() || "";
+        const phone = String(l.personalInfo?.phone || "");
+        const email = l.personalInfo?.email?.toLowerCase() || "";
+        const city = l.personalInfo?.city?.toLowerCase() || "";
+        const state = l.personalInfo?.state?.toLowerCase() || "";
+        const pincode = String(l.personalInfo?.pincode || "");
+        const source = l.leadSource?.toLowerCase() || "";
+        const segment = l.segment?.toLowerCase() || "";
+
+        return (
+            name.includes(normalizedSearch) ||
+            phone.includes(normalizedSearch) ||
+            email.includes(normalizedSearch) ||
+            city.includes(normalizedSearch) ||
+            state.includes(normalizedSearch) ||
+            pincode.includes(normalizedSearch) ||
+            source.includes(normalizedSearch) ||
+            segment.includes(normalizedSearch)
+        );
+    });
 
 
-    const filteredLeads = leads.filter(l =>
-        l.personalInfo?.name?.toLowerCase().includes(search.toLowerCase()) ||
-        l.personalInfo?.phone?.includes(search)
-    );
 
     const openViewModal = (lead) => {
         setActiveLead(lead);
@@ -272,8 +301,10 @@ export default function LeadTable({
                             <Text style={styles.cell}>{lead.personalInfo?.name}</Text>
                             <Text style={styles.cell}>{lead.personalInfo?.phone}</Text>
                             <Text style={styles.cell}>{lead.personalInfo?.email}</Text>
-                            <Text style={styles.cell}>{lead.leadSource}</Text>
-                            <Text style={styles.cell}>{lead.segment}</Text>
+                            <Text style={styles.cell}>{formatEnumLabel(lead.leadSource)}</Text>
+                            <Text style={styles.cell}>
+                                {formatEnumLabel(lead.segment)}
+                            </Text>
 
                             <View style={[styles.cell, { paddingVertical: 6 }]}>
                                 <StatusBadge value={lead.status} />

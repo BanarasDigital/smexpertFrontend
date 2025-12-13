@@ -11,6 +11,7 @@ import {
     Linking,
     Modal,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
 import { DataContext } from "../context";
 import { API_BASE_URL } from "../config";
@@ -147,16 +148,37 @@ export default function LeadPage({ navigation }) {
 
     const [sourceModalVisible, setSourceModalVisible] = useState(false);
     const [segmentModalVisible, setSegmentModalVisible] = useState(false);
+    const normalizeAssignedTo = (at) => {
+        if (
+            at === null ||
+            at === undefined ||
+            at === "" ||
+            (Array.isArray(at) && at.length === 0) ||
+            (typeof at === "object" &&
+                !Array.isArray(at) &&
+                Object.keys(at).length === 0)
+        ) {
+            return null;
+        }
+
+        return at;
+    };
+
+
     const fetchLeads = async () => {
         try {
             setLoading(true);
             const res = await apiGet("/get-lead");
 
-            const list =
+            let list =
                 res?.leads ||
                 res?.data?.leads ||
                 res?.data ||
                 [];
+            list = list.map(l => ({
+                ...l,
+                assignedTo: normalizeAssignedTo(l.assignedTo)
+            }));
 
             setLeads(list);
         } catch {
@@ -166,10 +188,12 @@ export default function LeadPage({ navigation }) {
         }
     };
 
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchLeads();
+        }, [])
+    );
 
-    useEffect(() => {
-        fetchLeads();
-    }, []);
     const fetchExportData = async () => {
         try {
             const token = await checkSession();
@@ -211,6 +235,53 @@ export default function LeadPage({ navigation }) {
             setExportAssignedTo("all");
         }
     }, [exportBranch, userList]);
+    // const handleImport = async () => {
+    //     try {
+    //         const pick = await DocumentPicker.getDocumentAsync({
+    //             type: [
+    //                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    //                 "application/vnd.ms-excel",
+    //             ],
+    //             copyToCacheDirectory: true,
+    //         });
+
+    //         if (pick.canceled) return;
+
+    //         const file = pick.assets?.[0];
+    //         if (!file) {
+    //             Alert.alert("Error", "No file selected.");
+    //             return;
+    //         }
+    //         const fileUri = file.uri;
+
+    //         const formData = new FormData();
+    //         formData.append("file", {
+    //             uri: fileUri,
+    //             name: file.name || "import.xlsx",
+    //             type:
+    //                 file.mimeType ||
+    //                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    //         });
+    //         const json = await apiPostForm("/lead/import", formData);
+
+    //         if (!json?.success) {
+    //             return Alert.alert(
+    //                 "Import Failed",
+    //                 json?.message || "Something went wrong"
+    //             );
+    //         }
+
+    //         Alert.alert(
+    //             "Import Summary",
+    //             `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`
+    //         );
+
+    //         fetchLeads();
+    //     } catch (err) {
+    //         console.log("IMPORT ERROR:", err);
+    //         Alert.alert("Error", "Failed to import leads.");
+    //     }
+    // };
     const handleImport = async () => {
         try {
             const pick = await DocumentPicker.getDocumentAsync({
@@ -224,14 +295,18 @@ export default function LeadPage({ navigation }) {
             if (pick.canceled) return;
 
             const file = pick.assets?.[0];
-            if (!file) {
+            if (!file?.uri) {
                 Alert.alert("Error", "No file selected.");
                 return;
             }
+            const fileUri =
+                Platform.OS === "android" && !file.uri.startsWith("file://")
+                    ? `file://${file.uri}`
+                    : file.uri;
 
             const formData = new FormData();
             formData.append("file", {
-                uri: file.uri,
+                uri: fileUri,
                 name: file.name || "import.xlsx",
                 type:
                     file.mimeType ||
@@ -241,18 +316,40 @@ export default function LeadPage({ navigation }) {
             const json = await apiPostForm("/lead/import", formData);
 
             if (!json?.success) {
-                return Alert.alert(
-                    "Import Failed",
-                    json?.message || "Something went wrong"
+                Alert.alert("Import Failed", json?.message || "Something went wrong");
+                return;
+            }
+            if (json.imported === 0 && json.duplicates > 0) {
+                Alert.alert(
+                    "No New Leads Imported",
+                    "All leads already exist in the system."
                 );
+                return;
             }
 
             Alert.alert(
                 "Import Summary",
-                `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`
+                `Imported: ${json.imported}
+Duplicates: ${json.duplicates}
+Failed: ${json.failed}`,
+                [
+                    {
+                        text: "OK",
+                        onPress: async () => {
+                            if (Array.isArray(json.leads) && json.leads.length > 0) {
+                                setLeads(prev => [
+                                    ...json.leads,
+                                    ...prev.filter(
+                                        p => !json.leads.some(n => n._id === p._id)
+                                    ),
+                                ]);
+                            } else {
+                                await fetchLeads();
+                            }
+                        },
+                    },
+                ]
             );
-            await fetchLeads();
-            setLeads(prev => [...prev]);
 
         } catch (err) {
             console.log("IMPORT ERROR:", err);
@@ -295,35 +392,10 @@ export default function LeadPage({ navigation }) {
                 Alert.alert("Session expired", "Please login again.");
                 return;
             }
-
-            // -----------------------------
-            // 1. CLEAN PARAM VALUES
-            // -----------------------------
-            const branchParam = exportBranch ? exportBranch : "";
-            const userParam = exportAssignedTo ? exportAssignedTo : "";
-
-            // -----------------------------
-            // 2. BUILD QUERY ONLY WHEN NEEDED
-            // -----------------------------
-            let query = [];
-
-            if (branchParam) query.push(`branchId=${branchParam}`);
-            if (userParam) query.push(`assignedTo=${userParam}`);
-
-            const queryString = query.length > 0 ? `?${query.join("&")}` : "";
-
-            // -----------------------------
-            // 3. BUILD URL
-            // -----------------------------
-            const downloadUrl = `${API_BASE_URL}/lead/export${queryString}`;
-
-            // -----------------------------
-            // 4. DYNAMIC FILENAME
-            // -----------------------------
             let filename = "leads.xlsx";
 
-            const branchObj = branchList.find(b => b._id === branchParam);
-            const userObj = filteredUsers.find(u => u._id === userParam);
+            const branchObj = branchList.find(b => b._id === exportBranch);
+            const userObj = filteredUsers.find(u => u._id === exportAssignedTo);
 
             if (branchObj && userObj) {
                 filename = `${branchObj.name}_${userObj.name}.leads.xlsx`;
@@ -332,24 +404,17 @@ export default function LeadPage({ navigation }) {
             } else if (userObj) {
                 filename = `${userObj.name}.leads.xlsx`;
             }
-
-            // Sanitize filename
             filename = filename.replace(/\s+/g, "-").replace(/[^\w.-]/g, "");
+
+            const params = `?branchId=${exportBranch}&assignedTo=${exportAssignedTo}`;
+            const downloadUrl = `${API_BASE_URL}/lead/export${params}`;
 
             const fileUri = FileSystem.documentDirectory + filename;
 
-            // -----------------------------
-            // 5. DOWNLOAD FILE
-            // -----------------------------
             const { uri } = await FileSystem.downloadAsync(downloadUrl, fileUri, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { Authorization: `Bearer ${token}` }
             });
 
-            // -----------------------------
-            // 6. SHARE / SAVE FILE
-            // -----------------------------
             if (await Sharing.isAvailableAsync()) {
                 await Sharing.shareAsync(uri);
             } else {
@@ -468,25 +533,39 @@ export default function LeadPage({ navigation }) {
             setSortDir("asc");
         }
     };
+    const isUnassigned = (lead) => {
+        const at = lead.assignedTo;
+        if (!at || at === "" || (Array.isArray(at) && at.length === 0)) return true;
+        if (typeof at === "object" && !Array.isArray(at)) {
+            if (Object.keys(at).length === 0) return true;
+            if (at._id && !at.name) return true;
+        }
+        return false;
+    };
     const processedLeads = useMemo(() => {
         let arr = [...leads];
-
         if (search.trim()) {
             const q = search.toLowerCase();
             arr = arr.filter((l) =>
-                `${l.personalInfo?.name ?? ""} ${l.personalInfo?.phone ?? ""} ${l.personalInfo?.email ?? ""
-                    }`
+                `${l.personalInfo?.name ?? ""} ${l.personalInfo?.phone ?? ""} ${l.personalInfo?.email ?? ""}`
                     .toLowerCase()
                     .includes(q)
             );
         }
-
         if (selectedSource) arr = arr.filter((l) => l.leadSource === selectedSource);
         if (selectedSegment) arr = arr.filter((l) => l.segment === selectedSegment);
         if (statusFilter) {
-            if (statusFilter === "unassigned")
-                arr = arr.filter((l) => !l.assignedTo);
-            else arr = arr.filter((l) => l.status === statusFilter);
+            arr = arr.filter((lead) => {
+                const unassigned = isUnassigned(lead);
+
+                if (statusFilter === "unassigned") {
+                    return unassigned;
+                }
+
+                if (unassigned) return false;
+
+                return lead.status === statusFilter;
+            });
         }
         arr.sort((a, b) => {
             const dir = sortDir === "asc" ? 1 : -1;
@@ -523,6 +602,7 @@ export default function LeadPage({ navigation }) {
         return arr;
     }, [leads, search, selectedSource, selectedSegment, statusFilter, sortKey, sortDir]);
 
+
     useEffect(() => setPage(1), [search, selectedSource, selectedSegment, statusFilter, sortKey, sortDir]);
 
     const totalPages = Math.max(1, Math.ceil(processedLeads.length / PAGE_SIZE));
@@ -532,24 +612,20 @@ export default function LeadPage({ navigation }) {
         [processedLeads, page]
     );
     const statusCounts = useMemo(() => {
-        const base = {
-            new: 0,
-            in_progress: 0,
-            interested: 0,
-            follow_up: 0,
-            converted: 0,
-            dropped: 0,
-            unassigned: 0,
-            not_interested: 0,
-        };
-
-        leads.forEach((l) => {
-            if (!l.assignedTo) base.unassigned += 1;
-            if (base[l.status] !== undefined) base[l.status] += 1;
+        const counts = { new: 0, in_progress: 0, interested: 0, follow_up: 0, converted: 0, dropped: 0, not_interested: 0, unassigned: 0 };
+        leads.forEach(lead => {
+            if (isUnassigned(lead)) {
+                counts.unassigned++;
+            } else if (lead.status !== "unassigned" && counts[lead.status] !== undefined) {
+                counts[lead.status]++;
+            }
         });
-
-        return base;
+        return counts;
     }, [leads]);
+
+
+
+
     const renderAnalyticsRows = () => (
         <View style={{ marginTop: 10, marginBottom: 8 }}>
             {STATUS_ROWS.map((row, idx) => (
@@ -781,10 +857,21 @@ export default function LeadPage({ navigation }) {
                 onClose={() => setSourceModalVisible(false)}
                 options={[
                     { label: "All", value: "" },
+
                     { label: "Google", value: "google" },
                     { label: "Facebook", value: "fb" },
+                    { label: "Instagram", value: "ig" },
+
                     { label: "Website", value: "website" },
+                    { label: "Referral", value: "referral" },
+                    { label: "Cold Call", value: "cold_call" },
+
+                    { label: "LinkedIn", value: "linkedin" },
+                    { label: "Twitter", value: "twitter" },
+
+                    { label: "Other", value: "other" },
                 ]}
+
             />
 
             <OptionModal
@@ -795,10 +882,20 @@ export default function LeadPage({ navigation }) {
                 onClose={() => setSegmentModalVisible(false)}
                 options={[
                     { label: "All", value: "" },
+
                     { label: "Stock Equity", value: "stock_equity" },
-                    { label: "Crypto", value: "crypto" },
+                    { label: "Stock Future", value: "stock_future" },
+                    { label: "Bank Nifty Option", value: "bank_nifty_option" },
+
+                    { label: "Commodity", value: "commodity" },
                     { label: "Forex", value: "forex" },
+                    { label: "Crypto", value: "crypto" },
+
+                    { label: "Mutual Funds", value: "mutual_funds" },
+
+                    { label: "Other", value: "other" },
                 ]}
+
             />
             <Modal visible={exportModalVisible} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
