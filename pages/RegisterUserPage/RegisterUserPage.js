@@ -154,6 +154,7 @@ const BranchPicker = ({ value, branches = [], onSelect, onOpen }) => {
             ) : (
               <FlatList
                 data={filtered}
+                keyboardDismissMode="interactive"
                 keyExtractor={(item) => String(item._id)}
                 keyboardShouldPersistTaps="handled"
                 initialNumToRender={18}
@@ -577,7 +578,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: "#ddd",
-   color: "#666",
+    color: "#666",
   },
 
   box: {

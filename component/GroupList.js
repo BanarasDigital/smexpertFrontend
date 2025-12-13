@@ -68,8 +68,8 @@ export default function GroupList({ navigation }) {
               {last?.content
                 ? last.content
                 : last?.attachments?.length
-                ? "📎 attachment"
-                : "Say hello 👋"}
+                  ? "📎 attachment"
+                  : "Say hello 👋"}
             </Text>
             {unread > 0 && (
               <View style={styles.badge}>
@@ -88,6 +88,8 @@ export default function GroupList({ navigation }) {
     <FlatList
       style={{ flex: 1, backgroundColor: "#fff" }}
       data={groups}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
       keyExtractor={(g) => g._id}
       renderItem={renderItem}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}

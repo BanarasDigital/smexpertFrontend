@@ -44,8 +44,8 @@ const safeText = (v) =>
   v == null
     ? ""
     : typeof v === "object"
-    ? v.name ?? v.label ?? v.title ?? v.id ?? ""
-    : String(v);
+      ? v.name ?? v.label ?? v.title ?? v.id ?? ""
+      : String(v);
 
 const getId = (obj) => {
   if (!obj) return "";
@@ -266,68 +266,68 @@ const CreateGroupScreen = ({ navigation }) => {
   //     Alert.alert("Error", msg);
   //   }
   // };
-// --- CREATE GROUP: clears fields after success and navigates
-const handleCreateGroup = async () => {
-  const title = (name || "").trim();
-  if (!title) return Alert.alert("Error", "Group name is required");
+  // --- CREATE GROUP: clears fields after success and navigates
+  const handleCreateGroup = async () => {
+    const title = (name || "").trim();
+    if (!title) return Alert.alert("Error", "Group name is required");
 
-  const branchIsValid = branches.some(
-    (b) => String(b.id ?? b._id) === String(branchId)
-  );
-  if (!branchIsValid) {
-    Toast.show({
-      type: "info",
-      text1: "Please select a valid branch",
-    });
-    setBranchPickerOpen(true);
-    return;
-  }
-
-  try {
-    const creatorId = getId(user);
-    const merged = Array.from(
-      new Set([...selectedMembers, creatorId].filter(Boolean))
+    const branchIsValid = branches.some(
+      (b) => String(b.id ?? b._id) === String(branchId)
     );
-    if (merged.length < 2) {
-      return Alert.alert("Error", "Select at least 1 more member");
+    if (!branchIsValid) {
+      Toast.show({
+        type: "info",
+        text1: "Please select a valid branch",
+      });
+      setBranchPickerOpen(true);
+      return;
     }
 
-    const payload = {
-      name: title,
-      members: merged,
-      branchId,
-      branchName,
-    };
-    const res = await apiPost("/create-group", payload);
+    try {
+      const creatorId = getId(user);
+      const merged = Array.from(
+        new Set([...selectedMembers, creatorId].filter(Boolean))
+      );
+      if (merged.length < 2) {
+        return Alert.alert("Error", "Select at least 1 more member");
+      }
 
-    const group = res?.data?.data ?? res?.data ?? res;
-    const groupName = toStringSafe(group?.name) || title;
-    if (!groupName) {
-      return Alert.alert("Error", "Failed to create group");
+      const payload = {
+        name: title,
+        members: merged,
+        branchId,
+        branchName,
+      };
+      const res = await apiPost("/create-group", payload);
+
+      const group = res?.data?.data ?? res?.data ?? res;
+      const groupName = toStringSafe(group?.name) || title;
+      if (!groupName) {
+        return Alert.alert("Error", "Failed to create group");
+      }
+
+      // Clear all fields after successful create
+      setName("");
+      setSearch("");
+      setSelectedMembers([]);
+      skipRef.current = 0;
+      await fetchUsers({ reset: true });
+
+      Toast.show({ type: "success", text1: "Group created" });
+      navigation.navigate("Chats", { newGroup: group });
+      navigation.navigate("GroupConversation", {
+        name: groupName,
+        group,
+      });
+    } catch (e) {
+      const msg = (e?.response?.data?.error || e?.message || "")
+        .toLowerCase()
+        .includes("exists")
+        ? "Group name already exists."
+        : "Failed to create group";
+      Alert.alert("Error", msg);
     }
-
-    // Clear all fields after successful create
-    setName("");
-    setSearch("");
-    setSelectedMembers([]);
-    skipRef.current = 0;
-    await fetchUsers({ reset: true });
-
-    Toast.show({ type: "success", text1: "Group created" });
-   navigation.navigate("Chats", { newGroup: group });
-    navigation.navigate("GroupConversation", {
-      name: groupName,
-      group,
-    });
-  } catch (e) {
-    const msg = (e?.response?.data?.error || e?.message || "")
-      .toLowerCase()
-      .includes("exists")
-      ? "Group name already exists."
-      : "Failed to create group";
-    Alert.alert("Error", msg);
-  }
-};
+  };
 
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return allUsers;
@@ -353,8 +353,8 @@ const handleCreateGroup = async () => {
       size === 24
         ? styles.avatarImgSm
         : size === 32
-        ? styles.avatarImgMd
-        : styles.avatarImg;
+          ? styles.avatarImgMd
+          : styles.avatarImg;
     if (uri) return <Image source={{ uri }} style={style} />;
     return (
       <View
@@ -604,6 +604,8 @@ const handleCreateGroup = async () => {
           <View style={styles.pickerCard}>
             <Text style={styles.pickerTitle}>Select branch</Text>
             <FlatList
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
               data={branches}
               keyExtractor={(b) => String(b.id ?? b._id)}
               renderItem={({ item }) => (

@@ -29,7 +29,7 @@ export default function PaymentReport() {
   const formatINR = (n) => (Number(n) || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
   const loadPayments = useCallback(async () => {
-//    setLoading(true);
+    //    setLoading(true);
     try {
       const res = await apiGet("/payments");
       setPayments(res?.success && Array.isArray(res.data) ? res.data : []);
@@ -59,7 +59,7 @@ export default function PaymentReport() {
   );
 
   // Admin PDF (includes client info + image)
-const buildReceiptHtml = (item) => `
+  const buildReceiptHtml = (item) => `
    <html>
      <head>
        <meta charset="UTF-8" />
@@ -137,8 +137,8 @@ const buildReceiptHtml = (item) => `
      <body>
        <div class="container">
          ${item.imageUrl
-           ? `<div class="image-wrapper"><img src="${item.imageUrl}" /></div>`
-           : ""}
+      ? `<div class="image-wrapper"><img src="${item.imageUrl}" /></div>`
+      : ""}
          <h2>Payment Details</h2>
          <table>
            <tr><td class="label">Client</td><td class="value">${item.clientName || "-"}</td></tr>
@@ -175,104 +175,104 @@ const buildReceiptHtml = (item) => `
   }, []);
 
 
-// ✅ Save (Admin Edit)
-const saveEdit = useCallback(async () => {
-  if (!editItem) return;
-  setSaving(true);
+  // ✅ Save (Admin Edit)
+  const saveEdit = useCallback(async () => {
+    if (!editItem) return;
+    setSaving(true);
 
-  try {
-    const payload = {
-      clientName: editItem.clientName?.trim() || "",
-      clientPhone: editItem.clientPhone?.trim() || "",
-      source: editItem.source?.trim() || "",
-      amount: String(editItem.amount ?? ""),
-      txId: editItem.txId?.trim() || "",
-      method: editItem.method?.trim() || "",
-    };
+    try {
+      const payload = {
+        clientName: editItem.clientName?.trim() || "",
+        clientPhone: editItem.clientPhone?.trim() || "",
+        source: editItem.source?.trim() || "",
+        amount: String(editItem.amount ?? ""),
+        txId: editItem.txId?.trim() || "",
+        method: editItem.method?.trim() || "",
+      };
 
-    let res;
+      let res;
 
-    if (newImageUri) {
-      // FormData upload for image replacement
-      const fd = new FormData();
-      Object.entries(payload).forEach(([k, v]) => fd.append(k, v));
-      fd.append("paymentImage", {
-        uri: newImageUri,
-        name: `payment_${Date.now()}.jpg`,
-        type: "image/jpeg",
-      });
+      if (newImageUri) {
+        // FormData upload for image replacement
+        const fd = new FormData();
+        Object.entries(payload).forEach(([k, v]) => fd.append(k, v));
+        fd.append("paymentImage", {
+          uri: newImageUri,
+          name: `payment_${Date.now()}.jpg`,
+          type: "image/jpeg",
+        });
 
-      res = await apiPut(`/payments/${editItem._id}`, fd, {
-        "Content-Type": "multipart/form-data",
-      });
-    } else {
-      // Normal text update
-      res = await apiPut(`/payments/${editItem._id}`, payload);
+        res = await apiPut(`/payments/${editItem._id}`, fd, {
+          "Content-Type": "multipart/form-data",
+        });
+      } else {
+        // Normal text update
+        res = await apiPut(`/payments/${editItem._id}`, payload);
+      }
+
+      if (res?.success) {
+        Alert.alert("✅ Updated", "Payment updated successfully");
+        setEditItem(null);
+        setNewImageUri(null);
+        loadPayments();
+      } else {
+        Alert.alert("❌ Error", res?.message || "Failed to update payment");
+      }
+    } catch (err) {
+      Alert.alert("Error", "Update failed: " + err.message);
+    } finally {
+      setSaving(false);
     }
-
-    if (res?.success) {
-      Alert.alert("✅ Updated", "Payment updated successfully");
-      setEditItem(null);
-      setNewImageUri(null);
-      loadPayments();
-    } else {
-      Alert.alert("❌ Error", res?.message || "Failed to update payment");
-    }
-  } catch (err) {
-    Alert.alert("Error", "Update failed: " + err.message);
-  } finally {
-    setSaving(false);
-  }
-}, [apiPut, editItem, newImageUri, loadPayments]);
+  }, [apiPut, editItem, newImageUri, loadPayments]);
 
 
 
-// ✅ Delete (Admin / User)
-const confirmDelete = (id) => {
-  Alert.alert("Delete Payment", "Are you sure? This cannot be undone.", [
-    { text: "Cancel", style: "cancel" },
-    {
-      text: "Delete",
-      style: "destructive",
-      onPress: async () => {
-        try {
-          const res = await apiDelete(`/payments/${id}`);
-          if (res?.success) {
-            Alert.alert("Deleted", "Payment deleted successfully");
-            loadPayments();
-          } else {
-            Alert.alert("Error", res?.message || "Failed to delete");
+  // ✅ Delete (Admin / User)
+  const confirmDelete = (id) => {
+    Alert.alert("Delete Payment", "Are you sure? This cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const res = await apiDelete(`/payments/${id}`);
+            if (res?.success) {
+              Alert.alert("Deleted", "Payment deleted successfully");
+              loadPayments();
+            } else {
+              Alert.alert("Error", res?.message || "Failed to delete");
+            }
+          } catch (err) {
+            Alert.alert("Error", "Delete failed: " + err.message);
           }
-        } catch (err) {
-          Alert.alert("Error", "Delete failed: " + err.message);
-        }
+        },
       },
-    },
-  ]);
-};
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
-     <View style={styles.headerColumn}>
-       <Text style={styles.title}>
-         🧾 Admin Payment Report
-       </Text>
+      <View style={styles.headerColumn}>
+        <Text style={styles.title}>
+          🧾 Admin Payment Report
+        </Text>
 
-       <Text style={styles.subTitle}>
-         Total: ₹{formatINR(totalAmount)} ({filtered.length})
-       </Text>
+        <Text style={styles.subTitle}>
+          Total: ₹{formatINR(totalAmount)} ({filtered.length})
+        </Text>
 
-       <View style={styles.searchBox}>
-         <Ionicons name="search-outline" size={16} color="#9fb1cc" />
-         <TextInput
-           style={styles.searchInput}
-           value={query}
-           onChangeText={setQuery}
-           placeholder="Search client, phone, Txn ID"
-           placeholderTextColor="#7a8ca6"
-         />
-       </View>
-     </View>
+        <View style={styles.searchBox}>
+          <Ionicons name="search-outline" size={16} color="#9fb1cc" />
+          <TextInput
+            style={styles.searchInput}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search client, phone, Txn ID"
+            placeholderTextColor="#7a8ca6"
+          />
+        </View>
+      </View>
 
       {loading ? (
         <ActivityIndicator color="#60a5fa" style={{ marginTop: 30 }} />
@@ -285,6 +285,8 @@ const confirmDelete = (id) => {
               ))}
             </View>
             <FlatList
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
               data={filtered}
               keyExtractor={(item) => item._id}
               renderItem={({ item, index }) => (
@@ -439,7 +441,7 @@ const styles = StyleSheet.create({
     color: "#9fb1cc",
     fontSize: 20,
     marginBottom: 16,
-    marginTop:16,
+    marginTop: 16,
     fontWeight: "900"
   },
 });

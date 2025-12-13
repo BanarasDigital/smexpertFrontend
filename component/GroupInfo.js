@@ -65,6 +65,8 @@ export default function GroupInfo({ navigation, route }) {
       <Text style={styles.sectionTitle}>Participants</Text>
       <FlatList
         data={group?.members || []}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         keyExtractor={(m) => m._id}
         ItemSeparatorComponent={() => <View style={styles.sep} />}
         renderItem={({ item }) => (

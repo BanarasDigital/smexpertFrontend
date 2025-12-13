@@ -292,6 +292,8 @@ export default function HomePage({ navigation }) {
         </View>
       ) : (
         <FlatList
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           data={chats}
           renderItem={renderItem}
           keyExtractor={(item) => String(item?._id)}

@@ -157,6 +157,8 @@ export default function UserManagement({ navigation }) {
         <ChatListSkeleton />
       ) : (
         <FlatList
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           data={userData}
           keyExtractor={(item, idx) => String(item?._id || idx)}
           renderItem={renderUser}

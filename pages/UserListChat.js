@@ -4,7 +4,7 @@ import React, {
   useMemo,
   useState,
   useCallback,
-  useRef, 
+  useRef,
 } from "react";
 import {
   View,
@@ -144,10 +144,10 @@ export default function UserListChat({ navigation }) {
         setCount(Number.isFinite(res?.count) ? res.count : finalList.length);
         setBranchName(
           toStringSafe(res?.branchName) ||
-            toStringSafe(user?.branch?.name) ||
-            toStringSafe(user?.branchName) ||
-            toStringSafe(user?.branch_name) ||
-            "My Branch"
+          toStringSafe(user?.branch?.name) ||
+          toStringSafe(user?.branchName) ||
+          toStringSafe(user?.branch_name) ||
+          "My Branch"
         );
       } catch (e) {
         if (!mountedRef.current) return;
@@ -304,6 +304,8 @@ export default function UserListChat({ navigation }) {
       ) : (
         <FlatList
           data={filtered}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           keyExtractor={keyExtractor}
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           renderItem={renderItem}

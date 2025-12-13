@@ -17,7 +17,7 @@ const METHODS = ["upi", "cash", "card", "bank", "wallet"];
 export default function PaymentUpdate() {
   const { apiGet, apiPostForm, apiDelete } = useContext(DataContext);
   const listRef = useRef(null);
-const navigation = useNavigation();
+  const navigation = useNavigation();
   // form
   const [imageUri, setImageUri] = useState(null);
   const [clientName, setClientName] = useState("");
@@ -79,7 +79,7 @@ const navigation = useNavigation();
 
   const savePayment = useCallback(async () => {
     if (!clientName.trim() || !clientPhone.trim() || !source.trim() ||
-        !amount.trim() || !txId.trim() || !method || !imageUri)
+      !amount.trim() || !txId.trim() || !method || !imageUri)
       return Alert.alert("Missing info", "All fields including image are required.");
     if (!/^\d{10}$/.test(clientPhone.trim()))
       return Alert.alert("Invalid phone", "Enter a valid 10-digit number.");
@@ -130,148 +130,148 @@ const navigation = useNavigation();
     ]);
   }, [apiDelete, loadPayments]);
 
-//  const buildReceiptHtml = useCallback((item, hideSensitive = false) => {
-//    const details = [
-//      ...(!hideSensitive
-//        ? [
-//            ["Client", item.clientName || "-"],
-//            ["Phone", item.clientPhone ? `+91 ${item.clientPhone}` : "-"],
-//          ]
-//        : []),
-//      ["Source", item.source || "-"],
-//      ["Amount", `₹${formatINR(item.amount)}`],
-//      ["Txn ID", item.txId || "-"],
-//      ["Method", (item.method || "").toUpperCase()],
-//      ["Date", new Date(item.createdAt || Date.now()).toLocaleString()],
-//    ];
-//
-//    return `
-//      <html><head><meta name="viewport" content="width=device-width, initial-scale=1" />
-//      <style>
-//        body{font-family:-apple-system,Roboto,Arial;padding:24px;background:#0b1220;}
-//        .card{max-width:760px;margin:0 auto;background:#0f172a;border:1px solid #1f2a44;border-radius:14px;overflow:hidden}
-//        .hero img{width:100%;display:block;border-bottom:1px solid #1f2a44;}
-//        .head{padding:16px 18px;background:#111827;color:#e6eefc;font-weight:800;text-align:center}
-//        .section{padding:18px}
-//        .row{display:flex;justify-content:space-between;color:#e6eefc;margin-top:6px;gap:10px}
-//        .label{color:#9fb1cc}
-//        .value{font-weight:700;word-break:break-word}
-//      </style></head>
-//      <body>
-//        <div class="card">
-//          ${item.imageUrl ? `<div class="hero"><img src="${item.imageUrl}" alt="Receipt"/></div>` : ``}
-//          <div class="head">Payment Receipt</div>
-//          <div class="section">
-//            ${details.map(([k,v])=>`<div class='row'><div class='label'>${k}</div><div class='value'>${v}</div></div>`).join("")}
-//          </div>
-//        </div>
-//      </body></html>`;
-//  }, [formatINR]);
-//
-//  const downloadPayment = useCallback(async (item) => {
-//    try {
-//      const html = buildReceiptHtml(item, false);
-//      const { uri } = await Print.printToFileAsync({ html });
-//      if (await Sharing.isAvailableAsync())
-//        await Sharing.shareAsync(uri, { dialogTitle: "Share Receipt PDF" });
-//    } catch {
-//      Alert.alert("Error", "Could not generate PDF.");
-//    }
-//  }, [buildReceiptHtml]);
-//
-//  const sendPayment = useCallback(async (item) => {
-//    try {
-//      const html = buildReceiptHtml(item, true); // hide sensitive info
-//      const { uri } = await Print.printToFileAsync({ html });
-//      if (await Sharing.isAvailableAsync())
-//        await Sharing.shareAsync(uri, { dialogTitle: "Send Receipt" });
-//      else Alert.alert("Unavailable", "Sharing not available on this device.");
-//    } catch {
-//      Alert.alert("Error", "Could not share receipt.");
-//    }
-//  }, [buildReceiptHtml]);
-// const buildReceiptHtml = useCallback((item, hideSensitive = false) => {
-//   const details = [
-//     ["Client", item.clientName || "-"],
-//     ["Phone", item.clientPhone ? `+91 ${item.clientPhone}` : "-"],
-//     ["Source", item.source || "-"],
-//     ["Amount", `₹${formatINR(item.amount)}`],
-//     ["Transaction ID", item.txId || "-"],
-//     ["Method", (item.method || "").toUpperCase()],
-//     ["Date", new Date(item.createdAt || Date.now()).toLocaleString()],
-//   ];
+  //  const buildReceiptHtml = useCallback((item, hideSensitive = false) => {
+  //    const details = [
+  //      ...(!hideSensitive
+  //        ? [
+  //            ["Client", item.clientName || "-"],
+  //            ["Phone", item.clientPhone ? `+91 ${item.clientPhone}` : "-"],
+  //          ]
+  //        : []),
+  //      ["Source", item.source || "-"],
+  //      ["Amount", `₹${formatINR(item.amount)}`],
+  //      ["Txn ID", item.txId || "-"],
+  //      ["Method", (item.method || "").toUpperCase()],
+  //      ["Date", new Date(item.createdAt || Date.now()).toLocaleString()],
+  //    ];
+  //
+  //    return `
+  //      <html><head><meta name="viewport" content="width=device-width, initial-scale=1" />
+  //      <style>
+  //        body{font-family:-apple-system,Roboto,Arial;padding:24px;background:#0b1220;}
+  //        .card{max-width:760px;margin:0 auto;background:#0f172a;border:1px solid #1f2a44;border-radius:14px;overflow:hidden}
+  //        .hero img{width:100%;display:block;border-bottom:1px solid #1f2a44;}
+  //        .head{padding:16px 18px;background:#111827;color:#e6eefc;font-weight:800;text-align:center}
+  //        .section{padding:18px}
+  //        .row{display:flex;justify-content:space-between;color:#e6eefc;margin-top:6px;gap:10px}
+  //        .label{color:#9fb1cc}
+  //        .value{font-weight:700;word-break:break-word}
+  //      </style></head>
+  //      <body>
+  //        <div class="card">
+  //          ${item.imageUrl ? `<div class="hero"><img src="${item.imageUrl}" alt="Receipt"/></div>` : ``}
+  //          <div class="head">Payment Receipt</div>
+  //          <div class="section">
+  //            ${details.map(([k,v])=>`<div class='row'><div class='label'>${k}</div><div class='value'>${v}</div></div>`).join("")}
+  //          </div>
+  //        </div>
+  //      </body></html>`;
+  //  }, [formatINR]);
+  //
+  //  const downloadPayment = useCallback(async (item) => {
+  //    try {
+  //      const html = buildReceiptHtml(item, false);
+  //      const { uri } = await Print.printToFileAsync({ html });
+  //      if (await Sharing.isAvailableAsync())
+  //        await Sharing.shareAsync(uri, { dialogTitle: "Share Receipt PDF" });
+  //    } catch {
+  //      Alert.alert("Error", "Could not generate PDF.");
+  //    }
+  //  }, [buildReceiptHtml]);
+  //
+  //  const sendPayment = useCallback(async (item) => {
+  //    try {
+  //      const html = buildReceiptHtml(item, true); // hide sensitive info
+  //      const { uri } = await Print.printToFileAsync({ html });
+  //      if (await Sharing.isAvailableAsync())
+  //        await Sharing.shareAsync(uri, { dialogTitle: "Send Receipt" });
+  //      else Alert.alert("Unavailable", "Sharing not available on this device.");
+  //    } catch {
+  //      Alert.alert("Error", "Could not share receipt.");
+  //    }
+  //  }, [buildReceiptHtml]);
+  // const buildReceiptHtml = useCallback((item, hideSensitive = false) => {
+  //   const details = [
+  //     ["Client", item.clientName || "-"],
+  //     ["Phone", item.clientPhone ? `+91 ${item.clientPhone}` : "-"],
+  //     ["Source", item.source || "-"],
+  //     ["Amount", `₹${formatINR(item.amount)}`],
+  //     ["Transaction ID", item.txId || "-"],
+  //     ["Method", (item.method || "").toUpperCase()],
+  //     ["Date", new Date(item.createdAt || Date.now()).toLocaleString()],
+  //   ];
 
-//   return `
-//     <html>
-//       <head>
-//         <meta name="viewport" content="width=device-width, initial-scale=1" />
-//         <style>
-//           body {
-//             font-family: -apple-system, Roboto, Arial;
-//             padding: 24px;
-//             background: #0b1220;
-//             color: #e6eefc;
-//           }
-//           .card {
-//             max-width: 760px;
-//             margin: 0 auto;
-//             background: #0f172a;
-//             border: 1px solid #1f2a44;
-//             border-radius: 14px;
-//             overflow: hidden;
-//           }
-//           .hero img {
-//             width: 100%;
-//             height: auto;
-//             display: block;
-//             border-bottom: 1px solid #1f2a44;
-//             object-fit: cover;
-//           }
-//           .head {
-//             padding: 16px 18px;
-//             background: #111827;
-//             color: #e6eefc;
-//             font-weight: 800;
-//             text-align: center;
-//           }
-//           .section { padding: 18px; }
-//           .row {
-//             display: flex;
-//             justify-content: space-between;
-//             color: #e6eefc;
-//             margin-top: 6px;
-//             gap: 10px;
-//           }
-//           .label { color: #9fb1cc; font-size: 14px; }
-//           .value { font-weight: 700; word-break: break-word; }
-//         </style>
-//       </head>
-//       <body>
-//         <div class="card">
-//           ${item.imageUrl ? `<div class="hero"><img src="${item.imageUrl}" alt="Receipt"/></div>` : ""}
-//           <div class="head">Payment Receipt</div>
-//           <div class="section">
-//             ${details.map(([k,v]) => `
-//               <div class='row'>
-//                 <div class='label'>${k}</div>
-//                 <div class='value'>${v}</div>
-//               </div>`).join("")}
-//           </div>
-//         </div>
-//       </body>
-//     </html>`;
-// }, [formatINR]);
-const buildReceiptHtml = useCallback(
-  (item) => {
-    const details = [
-      ["Source", item.source || "-"],
-      ["Amount", `₹${formatINR(item.amount)}`],
-      ["Transaction ID", item.txId || "-"],
-      ["Method", (item.method || "").toUpperCase()],
-      ["Date", new Date(item.createdAt || Date.now()).toLocaleString()],
-    ];
+  //   return `
+  //     <html>
+  //       <head>
+  //         <meta name="viewport" content="width=device-width, initial-scale=1" />
+  //         <style>
+  //           body {
+  //             font-family: -apple-system, Roboto, Arial;
+  //             padding: 24px;
+  //             background: #0b1220;
+  //             color: #e6eefc;
+  //           }
+  //           .card {
+  //             max-width: 760px;
+  //             margin: 0 auto;
+  //             background: #0f172a;
+  //             border: 1px solid #1f2a44;
+  //             border-radius: 14px;
+  //             overflow: hidden;
+  //           }
+  //           .hero img {
+  //             width: 100%;
+  //             height: auto;
+  //             display: block;
+  //             border-bottom: 1px solid #1f2a44;
+  //             object-fit: cover;
+  //           }
+  //           .head {
+  //             padding: 16px 18px;
+  //             background: #111827;
+  //             color: #e6eefc;
+  //             font-weight: 800;
+  //             text-align: center;
+  //           }
+  //           .section { padding: 18px; }
+  //           .row {
+  //             display: flex;
+  //             justify-content: space-between;
+  //             color: #e6eefc;
+  //             margin-top: 6px;
+  //             gap: 10px;
+  //           }
+  //           .label { color: #9fb1cc; font-size: 14px; }
+  //           .value { font-weight: 700; word-break: break-word; }
+  //         </style>
+  //       </head>
+  //       <body>
+  //         <div class="card">
+  //           ${item.imageUrl ? `<div class="hero"><img src="${item.imageUrl}" alt="Receipt"/></div>` : ""}
+  //           <div class="head">Payment Receipt</div>
+  //           <div class="section">
+  //             ${details.map(([k,v]) => `
+  //               <div class='row'>
+  //                 <div class='label'>${k}</div>
+  //                 <div class='value'>${v}</div>
+  //               </div>`).join("")}
+  //           </div>
+  //         </div>
+  //       </body>
+  //     </html>`;
+  // }, [formatINR]);
+  const buildReceiptHtml = useCallback(
+    (item) => {
+      const details = [
+        ["Source", item.source || "-"],
+        ["Amount", `₹${formatINR(item.amount)}`],
+        ["Transaction ID", item.txId || "-"],
+        ["Method", (item.method || "").toUpperCase()],
+        ["Date", new Date(item.createdAt || Date.now()).toLocaleString()],
+      ];
 
-    return `
+      return `
       <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -348,110 +348,110 @@ const buildReceiptHtml = useCallback(
               <div class="head">Payment Receipt</div>
               <div class="section">
                 ${details
-                  .map(
-                    ([k, v]) => `
+          .map(
+            ([k, v]) => `
                     <div class="row">
                       <div class="label">${k}</div>
                       <div class="value">${v}</div>
                     </div>`
-                  )
-                  .join("")}
+          )
+          .join("")}
               </div>
             </div>
           </div>
         </body>
       </html>`;
-  },
-  [formatINR]
-);
+    },
+    [formatINR]
+  );
 
 
-// ✅ Download / Share PDF
-const downloadPayment = useCallback(async (item) => {
-  try {
-    const html = buildReceiptHtml(item);
-    const { uri } = await Print.printToFileAsync({ html });
-    if (await Sharing.isAvailableAsync())
-      await Sharing.shareAsync(uri, { dialogTitle: "Share Receipt PDF" });
-  } catch {
-    Alert.alert("Error", "Could not generate PDF.");
-  }
-}, [buildReceiptHtml]);
-// ✅ Generate and Preview PDF before sending
-const previewAndSendPayment = useCallback(async (item) => {
-  try {
-    const html = buildReceiptHtml(item, true); // hide sensitive data
-    const { uri } = await Print.printToFileAsync({ html });
-    
-    // Open PDF preview before sending
-    const canShare = await Sharing.isAvailableAsync();
-    if (canShare) {
-      Alert.alert(
-        "Preview Receipt",
-        "Would you like to preview before sending?",
-        [
-          {
-            text: "Preview",
-            onPress: async () => {
-              await Sharing.shareAsync(uri, { dialogTitle: "Preview Receipt PDF" });
-              // After preview, navigate to chat selection
-              navigation.navigate("SelectChat", {
-                pdfUri: uri,
-                meta: {
-                  clientName: item.clientName,
-                  amount: formatINR(item.amount),
-                  txId: item.txId,
-                },
-              });
-            },
-          },
-          {
-            text: "Send Directly",
-            onPress: () => {
-              navigation.navigate("SelectChat", {
-                pdfUri: uri,
-                meta: {
-                  clientName: item.clientName,
-                  amount: formatINR(item.amount),
-                  txId: item.txId,
-                },
-              });
-            },
-          },
-          { text: "Cancel", style: "cancel" },
-        ]
-      );
-    } else {
-      navigation.navigate("SelectChat", { pdfUri: uri });
-    }
-  } catch (error) {
-    console.error("PDF Preview Error:", error);
-    Alert.alert("Error", "Could not generate or preview PDF.");
-  }
-}, [buildReceiptHtml, navigation, formatINR]);
-
-// ✅ Send to Chat Page
-const sendPayment = useCallback(
-  async (item) => {
+  // ✅ Download / Share PDF
+  const downloadPayment = useCallback(async (item) => {
     try {
-      const receiptHtml = buildReceiptHtml(item, true);
-      navigation.navigate("Chats", {
-        from: "Payment",
-        receiptHtml,
-        imageUrl: item.imageUrl || null,
-        meta: {
-          clientName: item.clientName,
-          amount: formatINR(item.amount),
-          txId: item.txId,
-          method: item.method,
-        },
-      });
-    } catch (err) {
-      Alert.alert("Error", "Navigation failed: " + err.message);
+      const html = buildReceiptHtml(item);
+      const { uri } = await Print.printToFileAsync({ html });
+      if (await Sharing.isAvailableAsync())
+        await Sharing.shareAsync(uri, { dialogTitle: "Share Receipt PDF" });
+    } catch {
+      Alert.alert("Error", "Could not generate PDF.");
     }
-  },
-  [navigation, buildReceiptHtml, formatINR]
-);
+  }, [buildReceiptHtml]);
+  // ✅ Generate and Preview PDF before sending
+  const previewAndSendPayment = useCallback(async (item) => {
+    try {
+      const html = buildReceiptHtml(item, true); // hide sensitive data
+      const { uri } = await Print.printToFileAsync({ html });
+
+      // Open PDF preview before sending
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        Alert.alert(
+          "Preview Receipt",
+          "Would you like to preview before sending?",
+          [
+            {
+              text: "Preview",
+              onPress: async () => {
+                await Sharing.shareAsync(uri, { dialogTitle: "Preview Receipt PDF" });
+                // After preview, navigate to chat selection
+                navigation.navigate("SelectChat", {
+                  pdfUri: uri,
+                  meta: {
+                    clientName: item.clientName,
+                    amount: formatINR(item.amount),
+                    txId: item.txId,
+                  },
+                });
+              },
+            },
+            {
+              text: "Send Directly",
+              onPress: () => {
+                navigation.navigate("SelectChat", {
+                  pdfUri: uri,
+                  meta: {
+                    clientName: item.clientName,
+                    amount: formatINR(item.amount),
+                    txId: item.txId,
+                  },
+                });
+              },
+            },
+            { text: "Cancel", style: "cancel" },
+          ]
+        );
+      } else {
+        navigation.navigate("SelectChat", { pdfUri: uri });
+      }
+    } catch (error) {
+      console.error("PDF Preview Error:", error);
+      Alert.alert("Error", "Could not generate or preview PDF.");
+    }
+  }, [buildReceiptHtml, navigation, formatINR]);
+
+  // ✅ Send to Chat Page
+  const sendPayment = useCallback(
+    async (item) => {
+      try {
+        const receiptHtml = buildReceiptHtml(item, true);
+        navigation.navigate("Chats", {
+          from: "Payment",
+          receiptHtml,
+          imageUrl: item.imageUrl || null,
+          meta: {
+            clientName: item.clientName,
+            amount: formatINR(item.amount),
+            txId: item.txId,
+            method: item.method,
+          },
+        });
+      } catch (err) {
+        Alert.alert("Error", "Navigation failed: " + err.message);
+      }
+    },
+    [navigation, buildReceiptHtml, formatINR]
+  );
   const openPreview = (item) => setPreview(item);
   const closePreview = () => setPreview(null);
 
@@ -474,6 +474,8 @@ const sendPayment = useCallback(
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <FlatList
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           ref={listRef}
           data={filtered}
           keyExtractor={(i) => i._id}
@@ -521,20 +523,20 @@ const sendPayment = useCallback(
             <View>
               <Text style={styles.title}>🧾 New Payment</Text>
               <View style={styles.form}>
-                <LabeledInput label="Client Name *" value={clientName} onChangeText={setClientName}/>
-                <LabeledInput label="Client Phone Number *" value={clientPhone} keyboardType="number-pad" maxLength={10} onChangeText={setClientPhone}/>
+                <LabeledInput label="Client Name *" value={clientName} onChangeText={setClientName} />
+                <LabeledInput label="Client Phone Number *" value={clientPhone} keyboardType="number-pad" maxLength={10} onChangeText={setClientPhone} />
                 <Text style={styles.label}>Receipt Image *</Text>
                 <View style={styles.imageRow}>
-                  {imageUri ? <Image source={{ uri: imageUri }} style={styles.preview}/> :
+                  {imageUri ? <Image source={{ uri: imageUri }} style={styles.preview} /> :
                     <View style={styles.imgPlaceholder}><Text style={styles.placeholderText}>Preview</Text></View>}
                   <TouchableOpacity onPress={pickImage} style={styles.pickButton}>
                     <Ionicons name="cloud-upload-outline" size={16} color="#dce7ff" />
                     <Text style={styles.pickText}>{imageUri ? "Change File" : "Upload File"}</Text>
                   </TouchableOpacity>
                 </View>
-                <LabeledInput label="Source Name *" value={source} onChangeText={setSource}/>
-                <LabeledInput label="Amount (₹) *" value={amount} keyboardType="numeric" onChangeText={(v) => setAmount(sanitizeAmount(v))}/>
-                <LabeledInput label="Transaction ID *" value={txId} autoCapitalize="characters" onChangeText={setTxId}/>
+                <LabeledInput label="Source Name *" value={source} onChangeText={setSource} />
+                <LabeledInput label="Amount (₹) *" value={amount} keyboardType="numeric" onChangeText={(v) => setAmount(sanitizeAmount(v))} />
+                <LabeledInput label="Transaction ID *" value={txId} autoCapitalize="characters" onChangeText={setTxId} />
                 <Text style={styles.label}>Payment Method *</Text>
                 <View style={styles.chipRow}>
                   {METHODS.map((m) => {
@@ -546,9 +548,9 @@ const sendPayment = useCallback(
                     );
                   })}
                 </View>
-                <View style={{ flexDirection: "row", gap: 12, marginTop:12 }}>
-                  <Secondary onPress={resetForm} text="Reset"/>
-                  <Primary onPress={savePayment} text={saving ? "Saving…" : "Save Payment"} disabled={saving}/>
+                <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
+                  <Secondary onPress={resetForm} text="Reset" />
+                  <Primary onPress={savePayment} text={saving ? "Saving…" : "Save Payment"} disabled={saving} />
                 </View>
               </View>
 
@@ -661,10 +663,10 @@ const styles = StyleSheet.create({
   primaryText: { color: "#fff", fontWeight: "700" },
   secondaryButton: { flex: 1, backgroundColor: "#1f2a44", padding: 12, borderRadius: 8, alignItems: "center" },
   secondaryText: { color: "#e6eefc", fontWeight: "600" },
-  toolbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 12,gap:6 },
+  toolbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 12, gap: 6 },
   search: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#0f172a", borderWidth: 1, borderColor: "#1f2a44", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   totalPill: { backgroundColor: "#1e40af", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
-  totalText: { color: "#fff",fontSize:16, fontWeight: "700",paddingHorizontal: 10, paddingVertical: 6 },
+  totalText: { color: "#fff", fontSize: 16, fontWeight: "700", paddingHorizontal: 10, paddingVertical: 6 },
   subTitle: { color: "#9fb1cc", fontWeight: "700", fontSize: 16, paddingHorizontal: 16, marginTop: 10 },
   card: { backgroundColor: "#0f172a", marginHorizontal: 16, marginTop: 12, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#1f2a44" },
   rowSpace: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },

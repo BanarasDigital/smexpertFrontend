@@ -170,19 +170,35 @@ export default function LeadTable({
             setSelected({});
             setSelectAll(false);
             setAssignModal(false);
-
-            console.log("✔ UI state reset after assign");
         } else {
             console.log("❌ Backend returned failure:", res.message);
             alert(res.message || "Bulk assign failed.");
         }
     };
+    const filteredLeads = leads.filter(l => {
+        if (!normalizedSearch) return true;
 
+        const name = l.personalInfo?.name?.toLowerCase() || "";
+        const phone = String(l.personalInfo?.phone || "");
+        const email = l.personalInfo?.email?.toLowerCase() || "";
+        const city = l.personalInfo?.city?.toLowerCase() || "";
+        const state = l.personalInfo?.state?.toLowerCase() || "";
+        const pincode = String(l.personalInfo?.pincode || "");
+        const source = l.leadSource?.toLowerCase() || "";
+        const segment = l.segment?.toLowerCase() || "";
 
-    const filteredLeads = leads.filter(l =>
-        l.personalInfo?.name?.toLowerCase().includes(search.toLowerCase()) ||
-        l.personalInfo?.phone?.includes(search)
-    );
+        return (
+            name.includes(normalizedSearch) ||
+            phone.includes(normalizedSearch) ||
+            email.includes(normalizedSearch) ||
+            city.includes(normalizedSearch) ||
+            state.includes(normalizedSearch) ||
+            pincode.includes(normalizedSearch) ||
+            source.includes(normalizedSearch) ||
+            segment.includes(normalizedSearch)
+        );
+    });
+
 
     const openViewModal = (lead) => {
         setActiveLead(lead);

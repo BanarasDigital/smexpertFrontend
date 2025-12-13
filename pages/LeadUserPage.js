@@ -63,20 +63,20 @@ export default function LeadUserPage() {
 
   const pageSize = 20;
 
-const fetchLeads = async () => {
-  setLoading(true);
+  const fetchLeads = async () => {
+    setLoading(true);
 
-  const res = await apiGet(`/lead/user/${userId}?page=${page}&limit=${pageSize}`);
+    const res = await apiGet(`/lead/user/${userId}?page=${page}&limit=${pageSize}`);
 
-  if (res?.success) {
-    setLeads(res.leads || []);
-    setPage(res.page || 1);
-    setPages(res.pages || 1);
-    setTotal(res.total || 0);
-  }
+    if (res?.success) {
+      setLeads(res.leads || []);
+      setPage(res.page || 1);
+      setPages(res.pages || 1);
+      setTotal(res.total || 0);
+    }
 
-  setLoading(false);
-};
+    setLoading(false);
+  };
 
 
   useEffect(() => {
@@ -151,59 +151,64 @@ const fetchLeads = async () => {
       await refreshLeadNotes(leadId);
     }
   };
-const handleImport = async () => {
-  try {
-    const pick = await DocumentPicker.getDocumentAsync({
-      type: [
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-excel",
-      ],
-      copyToCacheDirectory: true,
-    });
+  const handleImport = async () => {
+    try {
+      const pick = await DocumentPicker.getDocumentAsync({
+        type: [
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/vnd.ms-excel",
+        ],
+        copyToCacheDirectory: true,
+      });
 
-    if (pick.canceled) return;
+      if (pick.canceled) return;
 
-    const file = pick.assets?.[0];
-    if (!file) return Alert.alert("Error", "No file selected.");
+      const file = pick.assets?.[0];
+      if (!file) return Alert.alert("Error", "No file selected.");
 
-    const formData = new FormData();
-    formData.append("file", {
-      uri: file.uri,
-      name: file.name || "import.xlsx",
-      type:
-        file.mimeType ||
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
+      const formData = new FormData();
+      formData.append("file", {
+        uri: file.uri,
+        name: file.name || "import.xlsx",
+        type:
+          file.mimeType ||
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
 
-    const token = await checkSession();
-    if (!token) return Alert.alert("Session expired");
+      const token = await checkSession();
+      if (!token) return Alert.alert("Session expired");
 
-    const importUrl = `${API_BASE_URL}/lead/import/${user.branch}/${user._id}`;
+      const importUrl = `${API_BASE_URL}/lead/import/${user.branch}/${user._id}`;
 
-    const res = await fetch(importUrl, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
+      const res = await fetch(importUrl, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
 
-    const json = await res.json();
-    console.log("IMPORT RESULT:", json);
+      const json = await res.json();
+      console.log("IMPORT RESULT:", json);
 
-    if (!json.success) {
-      return Alert.alert("Import Failed", json.message || "Something went wrong");
+      if (!json.success) {
+        return Alert.alert("Import Failed", json.message || "Something went wrong");
+      }
+      if (json.insertedCount > 0) {
+        await fetchLeads();
+      }
+
+      Alert.alert(
+        "Import Summary",
+        `Imported: ${json.imported}
+Duplicates: ${json.duplicates}
+Failed: ${json.failed}`
+      );
+
+    } catch (err) {
+      console.log("IMPORT ERROR:", err);
+      Alert.alert("Error", "Import failed.");
     }
+  };
 
-    Alert.alert(
-      "Import Summary",
-      `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`
-    );
-    fetchLeads();
-
-  } catch (err) {
-    console.log("IMPORT ERROR:", err);
-    Alert.alert("Error", "Import failed.");
-  }
-};
   const userName = user?.name || user?.fullName || "User";
 
   const filteredLeads =

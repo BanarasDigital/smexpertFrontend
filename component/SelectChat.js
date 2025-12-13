@@ -56,6 +56,8 @@ export default function SelectChat({ route }) {
       <Text style={styles.title}>Select a Chat or Group</Text>
       <FlatList
         data={chats}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
           <TouchableOpacity
