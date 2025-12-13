@@ -239,12 +239,12 @@ Failed: ${json.failed}`
       <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 6, marginBottom: 10 }}>
 
         {/* IMPORT BUTTON */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={[styles.smallBtn, { backgroundColor: "#22C55E" }]}
           onPress={handleImport}
         >
           <Text style={styles.smallBtnText}>Import</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         <TouchableOpacity style={styles.smallBtn} onPress={() => setShowCallsModal(true)}>
           <Text style={styles.smallBtnText}>Calls</Text>

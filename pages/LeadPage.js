@@ -82,6 +82,7 @@ export default function LeadPage({ navigation }) {
     const [search, setSearch] = useState("");
     const [selectedSource, setSelectedSource] = useState("");
     const [selectedSegment, setSelectedSegment] = useState("");
+    const skipNextFocusRefetch = React.useRef(false);
 
     const [statusFilter, setStatusFilter] = useState("");
 
@@ -190,9 +191,14 @@ export default function LeadPage({ navigation }) {
 
     useFocusEffect(
         React.useCallback(() => {
+            if (skipNextFocusRefetch.current) {
+                skipNextFocusRefetch.current = false;
+                return;
+            }
             fetchLeads();
         }, [])
     );
+
 
     const fetchExportData = async () => {
         try {
@@ -235,53 +241,63 @@ export default function LeadPage({ navigation }) {
             setExportAssignedTo("all");
         }
     }, [exportBranch, userList]);
-    const handleImport = async () => {
-        try {
-            const pick = await DocumentPicker.getDocumentAsync({
-                type: [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    "application/vnd.ms-excel",
-                ],
-                copyToCacheDirectory: true,
-            });
+  const handleImport = async () => {
+  try {
+    const pick = await DocumentPicker.getDocumentAsync({
+      type: [
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+      ],
+      copyToCacheDirectory: true,
+    });
 
-            if (pick.canceled) return;
+    if (pick.canceled) return;
 
-            const file = pick.assets?.[0];
-            if (!file) {
-                Alert.alert("Error", "No file selected.");
-                return;
+    const file = pick.assets?.[0];
+    if (!file) {
+      Alert.alert("Error", "No file selected.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", {
+      uri: file.uri,
+      name: file.name || "import.xlsx",
+      type: file.mimeType ||
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    const json = await apiPostForm("/lead/import", formData);
+
+    if (!json?.success) {
+      return Alert.alert(
+        "Import Failed",
+        json?.message || "Something went wrong"
+      );
+    }
+
+    Alert.alert(
+      "Import Summary",
+      `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`,
+      [
+        {
+          text: "OK",
+          onPress: () => {
+            if (Array.isArray(json.leads) && json.leads.length > 0) {
+              setLeads(prev => [...json.leads, ...prev]);
             }
-            const fileUri = file.uri;
+            skipNextFocusRefetch.current = true;
+            fetchLeads(); 
+          },
+        },
+      ]
+    );
+  } catch (err) {
+    console.log("IMPORT ERROR:", err);
+    Alert.alert("Error", "Failed to import leads.");
+  }
+};
 
-            const formData = new FormData();
-            formData.append("file", {
-                uri: fileUri,
-                name: file.name || "import.xlsx",
-                type:
-                    file.mimeType ||
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            });
-            const json = await apiPostForm("/lead/import", formData);
-
-            if (!json?.success) {
-                return Alert.alert(
-                    "Import Failed",
-                    json?.message || "Something went wrong"
-                );
-            }
-
-            Alert.alert(
-                "Import Summary",
-                `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`
-            );
-
-            fetchLeads();
-        } catch (err) {
-            console.log("IMPORT ERROR:", err);
-            Alert.alert("Error", "Failed to import leads.");
-        }
-    };
     const handleTemplate = async () => {
         try {
             const token = await checkSession();
