@@ -11,7 +11,6 @@ import {
     Linking,
     Modal,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
 import { DataContext } from "../context";
 import { API_BASE_URL } from "../config";
@@ -82,7 +81,6 @@ export default function LeadPage({ navigation }) {
     const [search, setSearch] = useState("");
     const [selectedSource, setSelectedSource] = useState("");
     const [selectedSegment, setSelectedSegment] = useState("");
-    const skipNextFocusRefetch = React.useRef(false);
 
     const [statusFilter, setStatusFilter] = useState("");
 
@@ -189,17 +187,10 @@ export default function LeadPage({ navigation }) {
         }
     };
 
-    useFocusEffect(
-        React.useCallback(() => {
-            if (skipNextFocusRefetch.current) {
-                skipNextFocusRefetch.current = false;
-                return;
-            }
-            fetchLeads();
-        }, [])
-    );
 
-
+    useEffect(() => {
+        fetchLeads();
+    }, []);
     const fetchExportData = async () => {
         try {
             const token = await checkSession();
@@ -241,62 +232,53 @@ export default function LeadPage({ navigation }) {
             setExportAssignedTo("all");
         }
     }, [exportBranch, userList]);
-  const handleImport = async () => {
-  try {
-    const pick = await DocumentPicker.getDocumentAsync({
-      type: [
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-excel",
-      ],
-      copyToCacheDirectory: true,
-    });
+    const handleImport = async () => {
+        try {
+            const pick = await DocumentPicker.getDocumentAsync({
+                type: [
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "application/vnd.ms-excel",
+                ],
+                copyToCacheDirectory: true,
+            });
 
-    if (pick.canceled) return;
+            if (pick.canceled) return;
 
-    const file = pick.assets?.[0];
-    if (!file) {
-      Alert.alert("Error", "No file selected.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", {
-      uri: file.uri,
-      name: file.name || "import.xlsx",
-      type: file.mimeType ||
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-
-    const json = await apiPostForm("/lead/import", formData);
-
-    if (!json?.success) {
-      return Alert.alert(
-        "Import Failed",
-        json?.message || "Something went wrong"
-      );
-    }
-
-    Alert.alert(
-      "Import Summary",
-      `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`,
-      [
-        {
-          text: "OK",
-          onPress: () => {
-            if (Array.isArray(json.leads) && json.leads.length > 0) {
-              setLeads(prev => [...json.leads, ...prev]);
+            const file = pick.assets?.[0];
+            if (!file) {
+                Alert.alert("Error", "No file selected.");
+                return;
             }
-            skipNextFocusRefetch.current = true;
-            fetchLeads(); 
-          },
-        },
-      ]
-    );
-  } catch (err) {
-    console.log("IMPORT ERROR:", err);
-    Alert.alert("Error", "Failed to import leads.");
-  }
-};
+
+            const formData = new FormData();
+            formData.append("file", {
+                uri: file.uri,
+                name: file.name || "import.xlsx",
+      type: file.mimeType ||
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            });
+
+            const json = await apiPostForm("/lead/import", formData);
+
+            if (!json?.success) {
+                return Alert.alert(
+                    "Import Failed",
+                    json?.message || "Something went wrong"
+                );
+            }
+
+            Alert.alert(
+                "Import Summary",
+                `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`
+            );
+            await fetchLeads();
+            setLeads(prev => [...prev]);
+
+        } catch (err) {
+            console.log("IMPORT ERROR:", err);
+            Alert.alert("Error", "Failed to import leads.");
+        }
+    };
 
     const handleTemplate = async () => {
         try {
@@ -333,6 +315,14 @@ export default function LeadPage({ navigation }) {
                 Alert.alert("Session expired", "Please login again.");
                 return;
             }
+            const branchParam = exportBranch ? exportBranch : "";
+            const userParam = exportAssignedTo ? exportAssignedTo : "";
+            let query = [];
+
+            if (branchParam) query.push(`branchId=${branchParam}`);
+            if (userParam) query.push(`assignedTo=${userParam}`);
+
+            const queryString = query.length > 0 ? `?${query.join("&")}` : "";
             let filename = "leads.xlsx";
 
             const branchObj = branchList.find(b => b._id === exportBranch);
@@ -353,9 +343,10 @@ export default function LeadPage({ navigation }) {
             const fileUri = FileSystem.documentDirectory + filename;
 
             const { uri } = await FileSystem.downloadAsync(downloadUrl, fileUri, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
             });
-
             if (await Sharing.isAvailableAsync()) {
                 await Sharing.shareAsync(uri);
             } else {
@@ -485,10 +476,12 @@ export default function LeadPage({ navigation }) {
     };
     const processedLeads = useMemo(() => {
         let arr = [...leads];
+
         if (search.trim()) {
             const q = search.toLowerCase();
             arr = arr.filter((l) =>
-                `${l.personalInfo?.name ?? ""} ${l.personalInfo?.phone ?? ""} ${l.personalInfo?.email ?? ""}`
+                `${l.personalInfo?.name ?? ""} ${l.personalInfo?.phone ?? ""} ${l.personalInfo?.email ?? ""
+                    }`
                     .toLowerCase()
                     .includes(q)
             );
@@ -543,7 +536,6 @@ export default function LeadPage({ navigation }) {
         return arr;
     }, [leads, search, selectedSource, selectedSegment, statusFilter, sortKey, sortDir]);
 
-
     useEffect(() => setPage(1), [search, selectedSource, selectedSegment, statusFilter, sortKey, sortDir]);
 
     const totalPages = Math.max(1, Math.ceil(processedLeads.length / PAGE_SIZE));
@@ -564,7 +556,7 @@ export default function LeadPage({ navigation }) {
         return counts;
     }, [leads]);
 
-
+        
 
 
     const renderAnalyticsRows = () => (
