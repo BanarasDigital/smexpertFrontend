@@ -18,6 +18,7 @@ import LeadFormModal from "../component/LeadFormModal";
 import LeadTable from "../component/LeadTable";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
+import { useFocusEffect } from "@react-navigation/native";
 const STATUS_STYLES = {
     new: { bg: "#E5F3FF", text: "#0A84FF", label: "New" },
     in_progress: { bg: "#EDE9FE", text: "#5B21B6", label: "In Progress" },
@@ -187,10 +188,11 @@ export default function LeadPage({ navigation }) {
         }
     };
 
-
-    useEffect(() => {
-        fetchLeads();
-    }, []);
+useFocusEffect(
+  React.useCallback(() => {
+    fetchLeads();
+  }, [])
+);
     const fetchExportData = async () => {
         try {
             const token = await checkSession();
@@ -254,31 +256,41 @@ export default function LeadPage({ navigation }) {
             formData.append("file", {
                 uri: file.uri,
                 name: file.name || "import.xlsx",
-      type: file.mimeType ||
+                type:
+                    file.mimeType ||
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             });
 
+            setLoading(true);
+
             const json = await apiPostForm("/lead/import", formData);
 
+            setLoading(false);
+
             if (!json?.success) {
-                return Alert.alert(
-                    "Import Failed",
-                    json?.message || "Something went wrong"
-                );
+                Alert.alert("Import Failed", json?.message || "Something went wrong");
+                return;
             }
 
             Alert.alert(
-                "Import Summary",
-                `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`
+                "Import Completed",
+                `Imported: ${json.imported}\nDuplicates: ${json.duplicates}\nFailed: ${json.failed}`,
+                [
+                    {
+                        text: "OK",
+                        onPress: async () => {
+                            await fetchLeads();
+                        },
+                    },
+                ]
             );
-            await fetchLeads();
-            setLeads(prev => [...prev]);
-
         } catch (err) {
+            setLoading(false);
             console.log("IMPORT ERROR:", err);
             Alert.alert("Error", "Failed to import leads.");
         }
     };
+
 
     const handleTemplate = async () => {
         try {
@@ -556,7 +568,7 @@ export default function LeadPage({ navigation }) {
         return counts;
     }, [leads]);
 
-        
+
 
 
     const renderAnalyticsRows = () => (

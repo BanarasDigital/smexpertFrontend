@@ -724,77 +724,77 @@ export default function ChatScreen({ navigation, route }) {
     setPreviewVisible(true);
   };
 
-const MediaGrid = ({ items, isMine }) => (
-  <View style={styles.gridWrap}>
-    {items.map((att, i) => {
-      const isImg = isImage(att.type, att.url);
-      const isVid = isVideo(att.type, att.url);
-      const onPress = () => openPreview(items, i);
+  const MediaGrid = ({ items, isMine }) => (
+    <View style={styles.gridWrap}>
+      {items.map((att, i) => {
+        const isImg = isImage(att.type, att.url);
+        const isVid = isVideo(att.type, att.url);
+        const onPress = () => openPreview(items, i);
 
-      // IMAGE BLOCK
-      if (isImg) {
-        return (
-          <Pressable key={i} onPress={onPress} style={styles.gridItem}>
-            <Image
-              source={{ uri: att.url }}
-              style={[
-                styles.gridImage,
-                isMine ? styles.mediaMine : styles.mediaTheirs,
-              ]}
-            />
-
-            {/* Download button on image */}
-            <TouchableOpacity
-              style={styles.downloadBtn}
-              onPress={() =>
-                downloadAndOpen(att.url, att.name || `image-${Date.now()}.jpg`)
-              }
-            >
-              <Ionicons name="download-outline" size={24} color="#fff" />
-            </TouchableOpacity>
-          </Pressable>
-        );
-      }
-
-      // VIDEO BLOCK
-      if (isVid) {
-        return (
-          <Pressable key={i} onPress={onPress} style={styles.gridItem}>
-            <View
-              style={[
-                styles.gridVideoBox,
-                isMine ? styles.mediaMine : styles.mediaTheirs,
-              ]}
-            >
-              <Video
+        // IMAGE BLOCK
+        if (isImg) {
+          return (
+            <Pressable key={i} onPress={onPress} style={styles.gridItem}>
+              <Image
                 source={{ uri: att.url }}
-                style={styles.gridVideo}
-                resizeMode="cover"
-                useNativeControls
+                style={[
+                  styles.gridImage,
+                  isMine ? styles.mediaMine : styles.mediaTheirs,
+                ]}
               />
 
-              <View style={styles.playOverlay}>
-                <Ionicons name="play-circle" size={40} color="#fff" />
-              </View>
-
-              {/* Download button on video */}
+              {/* Download button on image */}
               <TouchableOpacity
                 style={styles.downloadBtn}
                 onPress={() =>
-                  downloadAndOpen(att.url, att.name || `video-${Date.now()}.mp4`)
+                  downloadAndOpen(att.url, att.name || `image-${Date.now()}.jpg`)
                 }
               >
                 <Ionicons name="download-outline" size={24} color="#fff" />
               </TouchableOpacity>
-            </View>
-          </Pressable>
-        );
-      }
+            </Pressable>
+          );
+        }
 
-      return null;
-    })}
-  </View>
-);
+        // VIDEO BLOCK
+        if (isVid) {
+          return (
+            <Pressable key={i} onPress={onPress} style={styles.gridItem}>
+              <View
+                style={[
+                  styles.gridVideoBox,
+                  isMine ? styles.mediaMine : styles.mediaTheirs,
+                ]}
+              >
+                <Video
+                  source={{ uri: att.url }}
+                  style={styles.gridVideo}
+                  resizeMode="cover"
+                  useNativeControls
+                />
+
+                <View style={styles.playOverlay}>
+                  <Ionicons name="play-circle" size={40} color="#fff" />
+                </View>
+
+                {/* Download button on video */}
+                <TouchableOpacity
+                  style={styles.downloadBtn}
+                  onPress={() =>
+                    downloadAndOpen(att.url, att.name || `video-${Date.now()}.mp4`)
+                  }
+                >
+                  <Ionicons name="download-outline" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          );
+        }
+
+        return null;
+      })}
+    </View>
+  );
 
 
   const renderMessage = (msg) => {
@@ -915,8 +915,7 @@ const MediaGrid = ({ items, isMine }) => (
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "height" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       {/* Header */}
       <View style={styles.topBar}>
@@ -951,7 +950,7 @@ const MediaGrid = ({ items, isMine }) => (
       </View>
 
       {/* Messages */}
-      <KeyboardAwareScrollView
+      {/* <KeyboardAwareScrollView
         ref={scrollViewRef}
         contentContainerStyle={{ padding: 10, paddingBottom }}
         enableOnAndroid
@@ -984,6 +983,44 @@ const MediaGrid = ({ items, isMine }) => (
                 <Text style={styles.dateText}>{group.date}</Text>
               </View>
               {group?.messages?.map(renderMessage)}
+            </View>
+          ))
+        )}
+      </KeyboardAwareScrollView> */}
+      <KeyboardAwareScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={{
+          padding: 10,
+          paddingBottom: paddingBottom,
+          flexGrow: 1,
+        }}
+        enableOnAndroid
+        keyboardShouldPersistTaps="handled"
+        extraScrollHeight={Platform.OS === "android" ? 120 : 0}
+        enableAutomaticScroll
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => {
+          requestAnimationFrame(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          });
+        }}
+      >
+        {chatData == null ? (
+          <ChatSkeleton />
+        ) : chatData.length === 0 ? (
+          <View style={{ paddingVertical: 40, alignItems: "center" }}>
+            <Ionicons name="chatbubbles-outline" size={40} color="#A0AEC0" />
+            <Text style={{ color: "#718096", marginTop: 6 }}>
+              Say hello 👋
+            </Text>
+          </View>
+        ) : (
+          chatData.map((group) => (
+            <View key={group.date}>
+              <View style={styles.dateContainer}>
+                <Text style={styles.dateText}>{group.date}</Text>
+              </View>
+              {group.messages.map(renderMessage)}
             </View>
           ))
         )}
