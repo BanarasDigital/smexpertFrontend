@@ -247,15 +247,9 @@ const downloadAndOpen = async (url, fileName) => {
     const safeUrl = getSafeUrl(url);
     const finalName =
       fileName || safeUrl.split("/").pop() || `file-${Date.now()}`;
-
     const fileUri = FileSystem.documentDirectory + finalName;
-
-    // Download file → using legacy API (Expo recommends this in v54)
     const result = await FileSystem.downloadAsync(safeUrl, fileUri);
-
     const mimeType = guessMimeFromName(finalName);
-
-    // 🚀 SAFE, NO CRASH: Use Sharing to open/export
     await Sharing.shareAsync(result.uri, {
       mimeType,
       dialogTitle: "Open or Save File",
@@ -290,10 +284,10 @@ const timeAgo = (ts) => {
 export default function ChatScreen({ navigation, route }) {
   const ctx = useContext(DataContext) || {};
   const { user, apiGet } = ctx;
-
+const [paddingBottom] = useState(90);
   const [message, setMessage] = useState("");
   const [chatData, setChatData] = useState(null);
-  const [paddingBottom, setPaddingBottom] = useState(80);
+  // const [paddingBottom, setPaddingBottom] = useState(80);
   const [receiver, setReceiver] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [imageUri, setImageUri] = useState(null);
@@ -724,77 +718,77 @@ export default function ChatScreen({ navigation, route }) {
     setPreviewVisible(true);
   };
 
-const MediaGrid = ({ items, isMine }) => (
-  <View style={styles.gridWrap}>
-    {items.map((att, i) => {
-      const isImg = isImage(att.type, att.url);
-      const isVid = isVideo(att.type, att.url);
-      const onPress = () => openPreview(items, i);
+  const MediaGrid = ({ items, isMine }) => (
+    <View style={styles.gridWrap}>
+      {items.map((att, i) => {
+        const isImg = isImage(att.type, att.url);
+        const isVid = isVideo(att.type, att.url);
+        const onPress = () => openPreview(items, i);
 
-      // IMAGE BLOCK
-      if (isImg) {
-        return (
-          <Pressable key={i} onPress={onPress} style={styles.gridItem}>
-            <Image
-              source={{ uri: att.url }}
-              style={[
-                styles.gridImage,
-                isMine ? styles.mediaMine : styles.mediaTheirs,
-              ]}
-            />
-
-            {/* Download button on image */}
-            <TouchableOpacity
-              style={styles.downloadBtn}
-              onPress={() =>
-                downloadAndOpen(att.url, att.name || `image-${Date.now()}.jpg`)
-              }
-            >
-              <Ionicons name="download-outline" size={24} color="#fff" />
-            </TouchableOpacity>
-          </Pressable>
-        );
-      }
-
-      // VIDEO BLOCK
-      if (isVid) {
-        return (
-          <Pressable key={i} onPress={onPress} style={styles.gridItem}>
-            <View
-              style={[
-                styles.gridVideoBox,
-                isMine ? styles.mediaMine : styles.mediaTheirs,
-              ]}
-            >
-              <Video
+        // IMAGE BLOCK
+        if (isImg) {
+          return (
+            <Pressable key={i} onPress={onPress} style={styles.gridItem}>
+              <Image
                 source={{ uri: att.url }}
-                style={styles.gridVideo}
-                resizeMode="cover"
-                useNativeControls
+                style={[
+                  styles.gridImage,
+                  isMine ? styles.mediaMine : styles.mediaTheirs,
+                ]}
               />
 
-              <View style={styles.playOverlay}>
-                <Ionicons name="play-circle" size={40} color="#fff" />
-              </View>
-
-              {/* Download button on video */}
+              {/* Download button on image */}
               <TouchableOpacity
                 style={styles.downloadBtn}
                 onPress={() =>
-                  downloadAndOpen(att.url, att.name || `video-${Date.now()}.mp4`)
+                  downloadAndOpen(att.url, att.name || `image-${Date.now()}.jpg`)
                 }
               >
                 <Ionicons name="download-outline" size={24} color="#fff" />
               </TouchableOpacity>
-            </View>
-          </Pressable>
-        );
-      }
+            </Pressable>
+          );
+        }
 
-      return null;
-    })}
-  </View>
-);
+        // VIDEO BLOCK
+        if (isVid) {
+          return (
+            <Pressable key={i} onPress={onPress} style={styles.gridItem}>
+              <View
+                style={[
+                  styles.gridVideoBox,
+                  isMine ? styles.mediaMine : styles.mediaTheirs,
+                ]}
+              >
+                <Video
+                  source={{ uri: att.url }}
+                  style={styles.gridVideo}
+                  resizeMode="cover"
+                  useNativeControls
+                />
+
+                <View style={styles.playOverlay}>
+                  <Ionicons name="play-circle" size={40} color="#fff" />
+                </View>
+
+                {/* Download button on video */}
+                <TouchableOpacity
+                  style={styles.downloadBtn}
+                  onPress={() =>
+                    downloadAndOpen(att.url, att.name || `video-${Date.now()}.mp4`)
+                  }
+                >
+                  <Ionicons name="download-outline" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          );
+        }
+
+        return null;
+      })}
+    </View>
+  );
 
 
   const renderMessage = (msg) => {
@@ -915,8 +909,8 @@ const MediaGrid = ({ items, isMine }) => (
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "height" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
     >
       {/* Header */}
       <View style={styles.topBar}>
@@ -953,15 +947,14 @@ const MediaGrid = ({ items, isMine }) => (
       {/* Messages */}
       <KeyboardAwareScrollView
         ref={scrollViewRef}
-        contentContainerStyle={{ padding: 10, paddingBottom }}
-        enableOnAndroid
-        onLayout={() => {
-          InteractionManager.runAfterInteractions(() => {
-            requestAnimationFrame(() =>
-              scrollViewRef.current?.scrollToEnd({ animated: true })
-            );
-          });
+        contentContainerStyle={{
+          padding: 10,
+          paddingBottom: paddingBottom,
+          flexGrow: 1,
         }}
+        enableOnAndroid
+        keyboardShouldPersistTaps="handled"
+        extraScrollHeight={Platform.OS === "android" ? 120 : 0}
         onContentSizeChange={() =>
           InteractionManager.runAfterInteractions(() => {
             requestAnimationFrame(() =>
@@ -1335,10 +1328,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 8,
     backgroundColor: "#fff",
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
+    // position: "absolute",
+    // bottom: 0,
+    // left: 0,
+    // right: 0,
   },
   input: {
     flex: 1,
