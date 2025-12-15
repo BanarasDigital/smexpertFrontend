@@ -10,18 +10,12 @@ import { navigationRef } from "./navserviceRef";
 import Constants from "expo-constants";
 
 const isExpoGo = Constants.appOwnership === "expo";
-
-/* =========================
-   BACKGROUND / KILLED NOTIFICATIONS (APK)
-========================= */
 if (!isExpoGo) {
   try {
     const messaging = require("@react-native-firebase/messaging").default;
 
     messaging().setBackgroundMessageHandler(async (remoteMessage) => {
       const data = remoteMessage?.data || {};
-
-      // 🔔 Ensure Android channel exists
       if (Platform.OS === "android") {
         await Notifications.setNotificationChannelAsync("default", {
           name: "Default",
@@ -31,8 +25,6 @@ if (!isExpoGo) {
           showBadge: true,
         });
       }
-
-      // 🔢 BADGE INCREMENT
       const currentBadge = await Notifications.getBadgeCountAsync();
       const nextBadge = currentBadge + 1;
 
@@ -71,10 +63,6 @@ if (!isExpoGo) {
     console.log("⚠ Background handler error:", err.message);
   }
 }
-
-/* =========================
-   APP ROOT
-========================= */
 function Root() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
