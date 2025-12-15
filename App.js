@@ -1,4 +1,4 @@
-import React, { useEffect, useContext, useState, useRef } from "react";
+import React, { useEffect, useContext, useState, useRef, useCallback } from "react";
 import { View, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -27,23 +27,9 @@ import SelectChat from "./component/SelectChat";
 import LeadPage from "./pages/LeadPage";
 import LeadUserPage from "./pages/LeadUserPage";
 
-useEffect(() => {
-  if (Platform.OS === "android" && Platform.Version >= 33) {
-    Notifications.requestPermissionsAsync();
-  }
-}, []);
-async function createAndroidChannel() {
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "Default",
-      importance: Notifications.AndroidImportance.MAX,
-      sound: "default",
-      vibrationPattern: [0, 250, 250, 250],
-      showBadge: true,
-    });
-  }
-}
+const Stack = createNativeStackNavigator();
 
+/** Foreground display config */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -52,130 +38,159 @@ Notifications.setNotificationHandler({
   }),
 });
 
+async function createAndroidChannel() {
+  if (Platform.OS !== "android") return;
+  await Notifications.setNotificationChannelAsync("default", {
+    name: "Default",
+    importance: Notifications.AndroidImportance.MAX,
+    sound: "default",
+    vibrationPattern: [0, 250, 250, 250],
+    showBadge: true,
+  });
+}
+
 export default function App() {
   const { checkSession, token, loading, user } = useContext(DataContext);
   const [ready, setReady] = useState(false);
   const pushTokenRef = useRef(null);
-  const handleNotificationNavigation = (data) => {
+
+  /** ✅ Use EAS projectId for your backend requirement */
+  const projectId =
+    Constants.expoConfig?.extra?.eas?.projectId ||
+    Constants.easConfig?.projectId ||
+    "smexpert";
+
+  const handleNotificationNavigation = useCallback((data) => {
     if (!data) return;
 
     switch (data.type) {
       case "private_chat":
-        navigationRef.current?.navigate("Chat", {
-          id: data.senderId,
-        });
+        navigationRef.current?.navigate("Chat", { id: data.senderId });
         break;
 
       case "group_chat":
-        navigationRef.current?.navigate("GroupChat", {
-          groupId: data.groupId,
-        });
+        navigationRef.current?.navigate("GroupChat", { groupId: data.groupId });
         break;
 
       case "lead_created":
       case "lead_note_added":
-        navigationRef.current?.navigate("LeadUserPage", {
-          userId: data.leadUserId,
-        });
+        navigationRef.current?.navigate("LeadUserPage", { userId: data.leadUserId });
         break;
 
       default:
+        // fallback
         console.log("Unknown notification type:", data);
     }
-  };
+  }, []);
 
   useEffect(() => {
     checkSession();
-    createAndroidChannel();
+  }, []);
 
-    const isExpoGo = Constants.appOwnership === "expo";
-    if (isExpoGo) {
-      Notifications.requestPermissionsAsync();
-      setReady(true);
-      return;
-    }
-
-    let messaging;
-    try {
-      messaging = require("@react-native-firebase/messaging").default;
-    } catch {
-      setReady(true);
-      return;
-    }
-
+  useEffect(() => {
     let unsubMessage;
     let unsubToken;
 
     (async () => {
       try {
+        // ✅ Android 13+ runtime permission
+        if (Platform.OS === "android" && Platform.Version >= 33) {
+          const perm = await Notifications.getPermissionsAsync();
+          if (perm.status !== "granted") {
+            await Notifications.requestPermissionsAsync();
+          }
+        }
+
+        await createAndroidChannel();
+
+        const isExpoGo = Constants.appOwnership === "expo";
+        if (isExpoGo) {
+          // Expo Go won’t receive FCM push. Foreground local tests still work.
+          setReady(true);
+          return;
+        }
+
+        // ✅ Firebase messaging for APK
+        const messaging = require("@react-native-firebase/messaging").default;
+
         await messaging().registerDeviceForRemoteMessages();
         await messaging().requestPermission();
 
         const fcmToken = await messaging().getToken();
         pushTokenRef.current = fcmToken;
 
+        // ✅ Save token to YOUR backend (requires projectId)
         if (fcmToken) {
           await fetch(`${API_BASE_URL}/save-token`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               token: fcmToken,
+              projectId,             // ✅ REQUIRED by backend
               platform: Platform.OS,
+              meta: { userId: user?._id || null },
             }),
           });
         }
 
-        unsubToken = messaging().onTokenRefresh((t) => {
+        unsubToken = messaging().onTokenRefresh(async (t) => {
           pushTokenRef.current = t;
+          try {
+            await fetch(`${API_BASE_URL}/save-token`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                token: t,
+                projectId,
+                platform: Platform.OS,
+                meta: { userId: user?._id || null },
+              }),
+            });
+          } catch {}
         });
+
+        // ✅ FOREGROUND: show via expo-notifications
         unsubMessage = messaging().onMessage(async (remoteMessage) => {
           const data = remoteMessage.data || {};
           const myId = String(user?._id || "");
+
+          // no self notifications
           if (
             (data.type === "private_chat" || data.type === "group_chat") &&
             String(data.senderId) === myId
-          ) {
+          ) return;
+
+          // admin-only note
+          if (data.type === "lead_note_added" && data.adminOnly === "true" && user?.role !== "admin")
             return;
-          }
-          if (
-            data.type === "lead_note_added" &&
-            data.adminOnly === "true" &&
-            user?.role !== "admin"
-          ) {
-            return;
-          }
 
-          let title = "Notification";
-          let body = "";
+          const title =
+            data.type === "private_chat"
+              ? `💬 ${data.senderName || "New Message"}`
+              : data.type === "group_chat"
+              ? `👥 ${data.groupName || "Group"}`
+              : data.type === "lead_created"
+              ? "📌 New Lead Assigned"
+              : data.type === "lead_note_added"
+              ? "📝 Lead Note Added"
+              : "Notification";
 
-          if (data.type === "private_chat") {
-            title = `💬 ${data.senderName}`;
-            body = data.message;
-          }
-
-          if (data.type === "group_chat") {
-            title = `👥 ${data.groupName}`;
-            body = `${data.senderName}: ${data.message}`;
-          }
-
-          if (data.type === "lead_created") {
-            title = "📌 New Lead Assigned";
-            body = data.body;
-          }
-
-          if (data.type === "lead_note_added") {
-            title = "📝 Lead Note Added";
-            body = data.body;
-          }
+          const body =
+            data.type === "private_chat"
+              ? data.message || ""
+              : data.type === "group_chat"
+              ? `${data.senderName || ""}: ${data.message || ""}`
+              : data.body || data.message || "";
 
           await Notifications.scheduleNotificationAsync({
             content: { title, body, data },
             trigger: null,
           });
         });
+
+        setReady(true);
       } catch (e) {
         console.log("FCM init error:", e);
-      } finally {
         setReady(true);
       }
     })();
@@ -184,16 +199,16 @@ export default function App() {
       unsubMessage && unsubMessage();
       unsubToken && unsubToken();
     };
-  }, []);
+  }, [user?._id, user?.role]);
 
+  // ✅ Tap handling
   useEffect(() => {
-    const sub =
-      Notifications.addNotificationResponseReceivedListener((res) => {
-        const data = res.notification.request.content.data;
-        handleNotificationNavigation(data);
-      });
+    const sub = Notifications.addNotificationResponseReceivedListener((res) => {
+      const data = res.notification.request.content.data;
+      handleNotificationNavigation(data);
+    });
     return () => sub.remove();
-  }, []);
+  }, [handleNotificationNavigation]);
 
   if (loading || !ready) {
     return (
