@@ -58,7 +58,7 @@ export default function App() {
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ||
     Constants.easConfig?.projectId ||
-    "smexpert";
+    "smexpert-b5c96";
 
   const handleNotificationNavigation = useCallback((data) => {
     if (!data) return;
