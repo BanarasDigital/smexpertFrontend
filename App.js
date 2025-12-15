@@ -53,12 +53,10 @@ export default function App() {
   const { checkSession, token, loading, user } = useContext(DataContext);
   const [ready, setReady] = useState(false);
   const pushTokenRef = useRef(null);
-
-  /** ✅ Use EAS projectId for your backend requirement */
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ||
     Constants.easConfig?.projectId ||
-    "smexpert-b5c96";
+    "33c430e6-dd87-4c80-974b-27aa58bc524b";
 
   const handleNotificationNavigation = useCallback((data) => {
     if (!data) return;
@@ -85,6 +83,10 @@ export default function App() {
 
   useEffect(() => {
     checkSession();
+  }, []);
+  useEffect(() => {
+    // 🔄 Reset badge when app becomes active / opens
+    Notifications.setBadgeCountAsync(0);
   }, []);
 
   useEffect(() => {
@@ -146,7 +148,7 @@ export default function App() {
                 meta: { userId: user?._id || null },
               }),
             });
-          } catch {}
+          } catch { }
         });
 
         // ✅ FOREGROUND: show via expo-notifications
@@ -168,24 +170,36 @@ export default function App() {
             data.type === "private_chat"
               ? `💬 ${data.senderName || "New Message"}`
               : data.type === "group_chat"
-              ? `👥 ${data.groupName || "Group"}`
-              : data.type === "lead_created"
-              ? "📌 New Lead Assigned"
-              : data.type === "lead_note_added"
-              ? "📝 Lead Note Added"
-              : "Notification";
+                ? `👥 ${data.groupName || "Group"}`
+                : data.type === "lead_created"
+                  ? "📌 New Lead Assigned"
+                  : data.type === "lead_note_added"
+                    ? "📝 Lead Note Added"
+                    : data.title || "Notification";
 
           const body =
             data.type === "private_chat"
               ? data.message || ""
               : data.type === "group_chat"
-              ? `${data.senderName || ""}: ${data.message || ""}`
-              : data.body || data.message || "";
+                ? `${data.senderName || ""}: ${data.message || ""}`
+                : data.body || data.message || "You have a new notification";
+
+
+          const currentBadge = await Notifications.getBadgeCountAsync();
+          const nextBadge = currentBadge + 1;
 
           await Notifications.scheduleNotificationAsync({
-            content: { title, body, data },
+            content: {
+              title,
+              body,
+              data,
+              badge: nextBadge,
+            },
             trigger: null,
           });
+
+          await Notifications.setBadgeCountAsync(nextBadge);
+
         });
 
         setReady(true);
