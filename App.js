@@ -1,4 +1,3 @@
-// App.js
 import React, { useEffect, useContext, useState, useRef } from "react";
 import { View, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -8,8 +7,9 @@ import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { DataContext } from "./context";
 import { API_BASE_URL } from "./config";
+import { navigationRef } from "./navserviceRef";
 
-// Screens
+// Screens (UNCHANGED)
 import MainTabs from "./pages/MainTabs/MainTabs";
 import Login from "./pages/authPages/Login/Login";
 import ChatScreen from "./pages/Chats/ChatPage";
@@ -27,26 +27,23 @@ import SelectChat from "./component/SelectChat";
 import LeadPage from "./pages/LeadPage";
 import LeadUserPage from "./pages/LeadUserPage";
 
-const Stack = createNativeStackNavigator();
-
-// ✅ Android notification channel for local notifications (Expo)
+useEffect(() => {
+  if (Platform.OS === "android" && Platform.Version >= 33) {
+    Notifications.requestPermissionsAsync();
+  }
+}, []);
 async function createAndroidChannel() {
   if (Platform.OS === "android") {
-    try {
-      await Notifications.setNotificationChannelAsync("default", {
-        name: "Default",
-        importance: Notifications.AndroidImportance.MAX,
-        sound: "default",
-        enableVibrate: true,
-        showBadge: true,
-      });
-    } catch (e) {
-      console.log("Channel creation error:", e.message);
-    }
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "Default",
+      importance: Notifications.AndroidImportance.MAX,
+      sound: "default",
+      vibrationPattern: [0, 250, 250, 250],
+      showBadge: true,
+    });
   }
 }
 
-// ✅ Global notification handler (Expo)
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -55,165 +52,152 @@ Notifications.setNotificationHandler({
   }),
 });
 
-function App() {
-  const { checkSession, token, loading } = useContext(DataContext);
+export default function App() {
+  const { checkSession, token, loading, user } = useContext(DataContext);
   const [ready, setReady] = useState(false);
   const pushTokenRef = useRef(null);
+  const handleNotificationNavigation = (data) => {
+    if (!data) return;
 
-  // Optional: if you later integrate navigationRef for deep linking
-  // const navigationRef = useRef();
+    switch (data.type) {
+      case "private_chat":
+        navigationRef.current?.navigate("Chat", {
+          id: data.senderId,
+        });
+        break;
 
-  const checkValidSession = async () => {
-    try {
-      const ok = await checkSession();
-      if (!ok) {
-        console.log("Session expired or invalid -> user must login");
-      }
-    } catch (err) {
-      console.log("Error checking session:", err);
+      case "group_chat":
+        navigationRef.current?.navigate("GroupChat", {
+          groupId: data.groupId,
+        });
+        break;
+
+      case "lead_created":
+      case "lead_note_added":
+        navigationRef.current?.navigate("LeadUserPage", {
+          userId: data.leadUserId,
+        });
+        break;
+
+      default:
+        console.log("Unknown notification type:", data);
     }
   };
 
   useEffect(() => {
     checkSession();
-    checkValidSession();
     createAndroidChannel();
 
     const isExpoGo = Constants.appOwnership === "expo";
-
-    // ❗ In Expo Go, FCM (RNFirebase) does NOT work.
-    // Only real APK or dev-build will receive push.
     if (isExpoGo) {
-      console.log("Running in Expo Go -> FCM will not work, only local notifs.");
-      Notifications.requestPermissionsAsync().catch(() => { });
+      Notifications.requestPermissionsAsync();
       setReady(true);
       return;
     }
 
     let messaging;
     try {
-      // React Native Firebase Messaging
       messaging = require("@react-native-firebase/messaging").default;
-    } catch (err) {
-      console.warn("Firebase messaging failed to load:", err.message);
+    } catch {
       setReady(true);
       return;
     }
 
-    let unsubOnMessage = null;
-    let unsubOnTokenRefresh = null;
+    let unsubMessage;
+    let unsubToken;
 
     (async () => {
       try {
-        // Must be called once before using FCM
         await messaging().registerDeviceForRemoteMessages();
+        await messaging().requestPermission();
 
-        // Ask permission (iOS; on Android usually granted)
-        const authStatus = await messaging().requestPermission();
-        const enabled =
-          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
-        if (!enabled) {
-          console.log("FCM permission not granted");
-        }
-
-        // Get FCM token
         const fcmToken = await messaging().getToken();
-        if (fcmToken) {
-          pushTokenRef.current = fcmToken;
-          console.log("FCM Token:", fcmToken);
+        pushTokenRef.current = fcmToken;
 
-          // Save token to backend
-          fetch(`${API_BASE_URL}/save-token`, {
+        if (fcmToken) {
+          await fetch(`${API_BASE_URL}/save-token`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               token: fcmToken,
-              projectId: "smexpert",
               platform: Platform.OS,
             }),
-          }).catch((err) =>
-            console.warn("save-token failed:", err.message)
-          );
+          });
         }
 
-        // On token refresh -> save again
-        unsubOnTokenRefresh = messaging().onTokenRefresh((newToken) => {
-          pushTokenRef.current = newToken;
-          console.log("FCM token refreshed:", newToken);
-          fetch(`${API_BASE_URL}/save-token`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              token: newToken,
-              projectId: "smexpert",
-              platform: Platform.OS,
-            }),
-          }).catch((err) =>
-            console.warn("save-token refresh failed:", err.message)
-          );
+        unsubToken = messaging().onTokenRefresh((t) => {
+          pushTokenRef.current = t;
         });
+        unsubMessage = messaging().onMessage(async (remoteMessage) => {
+          const data = remoteMessage.data || {};
+          const myId = String(user?._id || "");
+          if (
+            (data.type === "private_chat" || data.type === "group_chat") &&
+            String(data.senderId) === myId
+          ) {
+            return;
+          }
+          if (
+            data.type === "lead_note_added" &&
+            data.adminOnly === "true" &&
+            user?.role !== "admin"
+          ) {
+            return;
+          }
 
-        // Foreground messages -> show local notification using Expo
-        unsubOnMessage = messaging().onMessage(async (remoteMessage) => {
-          const title =
-            remoteMessage.notification?.title ||
-            remoteMessage.data?.title ||
-            "New message";
-          const body =
-            remoteMessage.notification?.body ||
-            remoteMessage.data?.body ||
-            "";
+          let title = "Notification";
+          let body = "";
+
+          if (data.type === "private_chat") {
+            title = `💬 ${data.senderName}`;
+            body = data.message;
+          }
+
+          if (data.type === "group_chat") {
+            title = `👥 ${data.groupName}`;
+            body = `${data.senderName}: ${data.message}`;
+          }
+
+          if (data.type === "lead_created") {
+            title = "📌 New Lead Assigned";
+            body = data.body;
+          }
+
+          if (data.type === "lead_note_added") {
+            title = "📝 Lead Note Added";
+            body = data.body;
+          }
 
           await Notifications.scheduleNotificationAsync({
-            content: {
-              title,
-              body,
-              data: remoteMessage.data || {},
-            },
+            content: { title, body, data },
             trigger: null,
           });
         });
-
-        // ❗ Deep linking / navigation from notification
-        // If you want later:
-        // messaging().onNotificationOpenedApp(remoteMessage => {
-        //   const screen = remoteMessage?.data?.screen;
-        //   if (screen) navigationRef.current?.navigate(screen);
-        // });
-        //
-        // const initial = await messaging().getInitialNotification();
-        // if (initial?.data?.screen) {
-        //   navigationRef.current?.navigate(initial.data.screen);
-        // }
-      } catch (err) {
-        console.warn("FCM init error:", err);
+      } catch (e) {
+        console.log("FCM init error:", e);
       } finally {
         setReady(true);
       }
     })();
 
     return () => {
-      try {
-        unsubOnMessage && unsubOnMessage();
-      } catch { }
-      try {
-        unsubOnTokenRefresh && unsubOnTokenRefresh();
-      } catch { }
+      unsubMessage && unsubMessage();
+      unsubToken && unsubToken();
     };
+  }, []);
+
+  useEffect(() => {
+    const sub =
+      Notifications.addNotificationResponseReceivedListener((res) => {
+        const data = res.notification.request.content.data;
+        handleNotificationNavigation(data);
+      });
+    return () => sub.remove();
   }, []);
 
   if (loading || !ready) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#000",
-        }}
-      >
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <LoadingSpinner />
       </View>
     );
@@ -228,18 +212,12 @@ function App() {
             <Stack.Screen name="Chat" component={ChatScreen} />
             <Stack.Screen name="Chats" component={HomePage} />
             <Stack.Screen name="Leads" component={LeadPage} />
-            <Stack.Screen name="LeadUserPage" component={LeadUserPage} />           
-             <Stack.Screen name="ImageEditScreen" component={ImageEditScreen} />
+            <Stack.Screen name="LeadUserPage" component={LeadUserPage} />
+            <Stack.Screen name="ImageEditScreen" component={ImageEditScreen} />
             <Stack.Screen name="AddUser" component={RegisterScreen} />
             <Stack.Screen name="GroupInfo" component={GroupInfo} />
-            <Stack.Screen
-              name="GroupConversation"
-              component={GroupConversation}
-            />
-            <Stack.Screen
-              name="ManageGroupMembers"
-              component={ManageGroupMembers}
-            />
+            <Stack.Screen name="GroupConversation" component={GroupConversation} />
+            <Stack.Screen name="ManageGroupMembers" component={ManageGroupMembers} />
             <Stack.Screen name="GroupChat" component={GroupChat} />
             <Stack.Screen name="SelectChat" component={SelectChat} />
           </>
@@ -252,10 +230,7 @@ function App() {
           </>
         )}
       </Stack.Navigator>
-
       <Toast />
     </SafeAreaView>
   );
 }
-
-export default App;

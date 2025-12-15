@@ -136,6 +136,32 @@ export default function GroupChat({ navigation, route }) {
       requestAnimationFrame(scrollToEnd);
     });
   }, [groupId]);
+  const isSameDay = (d1, d2) => {
+    if (!d1 || !d2) return false;
+    const a = new Date(d1);
+    const b = new Date(d2);
+    return (
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate()
+    );
+  };
+
+  const formatDateLabel = (date) => {
+    const d = new Date(date);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (isSameDay(d, today)) return "Today";
+    if (isSameDay(d, yesterday)) return "Yesterday";
+
+    return d.toLocaleDateString([], {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
   /* Keyboard padding */
   useEffect(() => {
@@ -375,7 +401,12 @@ export default function GroupChat({ navigation, route }) {
     await sound.playAsync();
   };
 
-  const renderBubble = ({ item }) => {
+  const renderBubble = ({ item, index }) => {
+
+    const prevMsg = messages[index - 1];
+    const showDate =
+      index === 0 ||
+      !isSameDay(item.createdAt, prevMsg?.createdAt);
     const isMine =
       String(item?.senderId?._id || item.senderId) === String(user._id);
     const bubble = isMine ? styles.myBubble : styles.theirBubble;
@@ -395,132 +426,141 @@ export default function GroupChat({ navigation, route }) {
     const files = atts.filter((a) => !media.includes(a));
 
     return (
-      <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
-        {!isMine && (item?.senderId?.profileImage || item?.profileImage) ? (
-          <Image
-            source={{ uri: item?.senderId?.profileImage || item?.profileImage }}
-            style={styles.msgAvatar}
-          />
-        ) : !isMine ? (
-          <Ionicons
-            name="person-circle-outline"
-            size={28}
-            color="#999"
-            style={{ marginRight: 6 }}
-          />
-        ) : null}
-
-        <View style={[styles.bubble, bubble]}>
-          {/* Optional sender name for group */}
-          {!isMine && item?.senderId?.name ? (
-            <Text style={styles.senderName} numberOfLines={1}>
-              {item.senderId.name}
+      <>
+        {showDate && (
+          <View style={styles.dateSeparator}>
+            <Text style={styles.dateText}>
+              {formatDateLabel(item.createdAt)}
             </Text>
+          </View>
+        )}
+        <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
+          {!isMine && (item?.senderId?.profileImage || item?.profileImage) ? (
+            <Image
+              source={{ uri: item?.senderId?.profileImage || item?.profileImage }}
+              style={styles.msgAvatar}
+            />
+          ) : !isMine ? (
+            <Ionicons
+              name="person-circle-outline"
+              size={28}
+              color="#999"
+              style={{ marginRight: 6 }}
+            />
           ) : null}
 
-          {item.content ? (
-            <Text style={styles.msgText}>{item.content}</Text>
-          ) : null}
-          {media.length > 0 ? (
-            <View style={styles.mediaWrap}>
-              {media.map((m, i) => {
-                const uri = m.url;
-
-                // IMAGE
-                if (isImage(m.type, uri)) {
-                  return (
-                    <View key={`m-${i}`} style={styles.mediaItem}>
-                      <Pressable onPress={() => openPreview(media, i)}>
-                        <Image source={{ uri }} style={styles.mediaImg} />
-                      </Pressable>
-
-                      <TouchableOpacity
-                        style={styles.downloadBtn}
-                        onPress={() => downloadAndOpen(uri, m.name)}
-                      >
-                        <Ionicons name="download-outline" size={22} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-                  );
-                }
-
-                // VIDEO  (RESTORED ORIGINAL PREVIEW)
-                if (isVideo(m.type, uri)) {
-                  return (
-                    <View key={`m-${i}`} style={styles.mediaItem}>
-                      <Pressable onPress={() => openPreview(media, i)} style={{ flex: 1 }}>
-                        <View style={styles.videoBox}>
-                          <Video
-                            source={{ uri }}
-                            style={styles.video}
-                            resizeMode="cover"
-                            useNativeControls
-                          />
-                          <View style={styles.playOverlay}>
-                            <Ionicons name="play-circle" size={40} color="#fff" />
-                          </View>
-                        </View>
-                      </Pressable>
-
-                      {/* DOWNLOAD ICON */}
-                      <TouchableOpacity
-                        style={styles.downloadBtn}
-                        onPress={() =>
-                          downloadAndOpen(uri, m.name || `video-${Date.now()}.mp4`)
-                        }
-                      >
-                        <Ionicons name="download-outline" size={22} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-                  );
-                }
-
-                // AUDIO
-                if (isAudio(m.type, uri)) {
-                  return (
-                    <View key={`a-${i}`} style={styles.audioRow}>
-                      <TouchableOpacity onPress={() => playAudio(uri)} style={styles.audioPlay}>
-                        <Ionicons name="play" size={18} color="#fff" />
-                      </TouchableOpacity>
-
-                      <Text style={styles.audioName} numberOfLines={1}>{m.name}</Text>
-
-                      <TouchableOpacity onPress={() => downloadAndOpen(uri, m.name)}>
-                        <Ionicons name="download-outline" size={22} color="#0B6E4F" />
-                      </TouchableOpacity>
-                    </View>
-                  );
-                }
-
-                return null;
-              })}
-            </View>
-          ) : null}
-
-
-          {files.map((f, i) => (
-            <View key={`f-${i}`} style={styles.fileTile}>
-              <Ionicons name="document-attach-outline" size={24} color="#333" />
-
-              <Text
-                style={styles.fileName}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {f.name}
+          <View style={[styles.bubble, bubble]}>
+            {/* Optional sender name for group */}
+            {!isMine && item?.senderId?.name ? (
+              <Text style={styles.senderName} numberOfLines={1}>
+                {item.senderId.name}
               </Text>
+            ) : null}
 
-              <TouchableOpacity onPress={() => downloadAndOpen(f.url, f.name)}>
+            {item.content ? (
+              <Text style={styles.msgText}>{item.content}</Text>
+            ) : null}
+            {media.length > 0 ? (
+              <View style={styles.mediaWrap}>
+                {media.map((m, i) => {
+                  const uri = m.url;
 
-                <Ionicons name="download-outline" size={24} color="#0B6E4F" />
-              </TouchableOpacity>
-            </View>
-          ))}
+                  // IMAGE
+                  if (isImage(m.type, uri)) {
+                    return (
+                      <View key={`m-${i}`} style={styles.mediaItem}>
+                        <Pressable onPress={() => openPreview(media, i)}>
+                          <Image source={{ uri }} style={styles.mediaImg} />
+                        </Pressable>
+
+                        <TouchableOpacity
+                          style={styles.downloadBtn}
+                          onPress={() => downloadAndOpen(uri, m.name)}
+                        >
+                          <Ionicons name="download-outline" size={22} color="#fff" />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  }
+
+                  // VIDEO  (RESTORED ORIGINAL PREVIEW)
+                  if (isVideo(m.type, uri)) {
+                    return (
+                      <View key={`m-${i}`} style={styles.mediaItem}>
+                        <Pressable onPress={() => openPreview(media, i)} style={{ flex: 1 }}>
+                          <View style={styles.videoBox}>
+                            <Video
+                              source={{ uri }}
+                              style={styles.video}
+                              resizeMode="cover"
+                              useNativeControls
+                            />
+                            <View style={styles.playOverlay}>
+                              <Ionicons name="play-circle" size={40} color="#fff" />
+                            </View>
+                          </View>
+                        </Pressable>
+
+                        {/* DOWNLOAD ICON */}
+                        <TouchableOpacity
+                          style={styles.downloadBtn}
+                          onPress={() =>
+                            downloadAndOpen(uri, m.name || `video-${Date.now()}.mp4`)
+                          }
+                        >
+                          <Ionicons name="download-outline" size={22} color="#fff" />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  }
+
+                  // AUDIO
+                  if (isAudio(m.type, uri)) {
+                    return (
+                      <View key={`a-${i}`} style={styles.audioRow}>
+                        <TouchableOpacity onPress={() => playAudio(uri)} style={styles.audioPlay}>
+                          <Ionicons name="play" size={18} color="#fff" />
+                        </TouchableOpacity>
+
+                        <Text style={styles.audioName} numberOfLines={1}>{m.name}</Text>
+
+                        <TouchableOpacity onPress={() => downloadAndOpen(uri, m.name)}>
+                          <Ionicons name="download-outline" size={22} color="#0B6E4F" />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  }
+
+                  return null;
+                })}
+              </View>
+            ) : null}
 
 
-          <Text style={styles.time}>{formatClock(item.createdAt)}</Text>
+            {files.map((f, i) => (
+              <View key={`f-${i}`} style={styles.fileTile}>
+                <Ionicons name="document-attach-outline" size={24} color="#333" />
+
+                <Text
+                  style={styles.fileName}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {f.name}
+                </Text>
+
+                <TouchableOpacity onPress={() => downloadAndOpen(f.url, f.name)}>
+
+                  <Ionicons name="download-outline" size={24} color="#0B6E4F" />
+                </TouchableOpacity>
+              </View>
+            ))}
+
+
+            <Text style={styles.time}>{formatClock(item.createdAt)}</Text>
+          </View>
         </View>
-      </View>
+      </>
     );
   };
 
@@ -597,7 +637,7 @@ export default function GroupChat({ navigation, route }) {
         keyExtractor={(m, i) =>
           m?._id ? `msg-${m._id}` : `temp-${i}-${Date.now()}`
         }
-        renderItem={renderBubble}
+        renderItem={({ item, index }) => renderBubble({ item, index })}
         contentContainerStyle={{
           padding: 10,
           paddingBottom: 70 + paddingBottom,
@@ -1073,6 +1113,20 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 20,
     zIndex: 20,
+  },
+  dateSeparator: {
+    alignSelf: "center",
+    backgroundColor: "#E1F3FB",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginVertical: 10,
+  },
+
+  dateText: {
+    fontSize: 12,
+    color: "#555",
+    fontWeight: "600",
   },
 
 });
