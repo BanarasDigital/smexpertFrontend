@@ -58,6 +58,7 @@ const ResetPassword = ({ route, navigation }) => {
           <TextInput
             style={styles.input}
             placeholder="Enter OTP"
+             placeholderTextColor="#9CA3AF"
             keyboardType="number-pad"
             value={otp}
             onChangeText={setOtp}
