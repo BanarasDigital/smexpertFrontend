@@ -828,7 +828,10 @@ Failed: ${json.failed}`,
     return (
         <View style={styles.container}>
             {viewMode === "dashboard" ? (
-                <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+                <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
+                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}>
                     {renderDashboardView()}
                 </ScrollView>
             ) : (

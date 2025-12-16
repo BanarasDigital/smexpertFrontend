@@ -39,6 +39,7 @@ const ForgotPassword = ({ navigation }) => {
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
         keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
       >
         <View style={styles.card}>
           <Text style={styles.appTitle}>Forgot Password</Text>

@@ -299,6 +299,8 @@ Failed: ${json.failed}`
           style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ flexGrow: 1 }}
         >
           <ScrollView
             horizontal

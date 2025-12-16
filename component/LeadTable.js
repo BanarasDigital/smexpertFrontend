@@ -249,93 +249,124 @@ export default function LeadTable({
                     </View>
                 </View>
             )}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={{ minWidth: 1850 }}>
-                    <View style={styles.tableHeader}>
-                        <TouchableOpacity
-                            style={styles.headerCellSmall}
-                            onPress={toggleSelectAll}
-                        >
-                            <Text style={styles.headerText}>{selectAll ? "☑" : "☐"}</Text>
-                        </TouchableOpacity>
+            <ScrollView
+                style={{ flex: 1 }}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+                contentContainerStyle={{ flexGrow: 1 }}
+                showsVerticalScrollIndicator={true}
+            >
+                <ScrollView
+                    horizontal
+                    nestedScrollEnabled
+                    showsHorizontalScrollIndicator={false}
+                >
+                    <View style={{ minWidth: 1850 }}>
 
-                        {[
-                            { label: "Name", key: "name" },
-                            { label: "Phone", key: "phone" },
-                            { label: "Email", key: "email" },
-                            { label: "Source", key: "leadSource" },
-                            { label: "Segment", key: "segment" },
-                            { label: "Status", key: "status" },
-                            { label: "Priority", key: "priority" },
-                            { label: "Investment", key: "investment" },
-                            { label: "Branch", key: "branch" },
-                            { label: "Assigned", key: "assignedTo" },
-                            { label: "Created", key: "createdAt" },
-                            { label: "More" },
-                            { label: "Action" },
-                        ].map((col, i) => (
+                        {/* ===== TABLE HEADER ===== */}
+                        <View style={styles.tableHeader}>
                             <TouchableOpacity
-                                key={i}
-                                style={styles.headerCell}
-                                onPress={() => col.key && onSort(col.key)}
+                                style={styles.headerCellSmall}
+                                onPress={toggleSelectAll}
                             >
                                 <Text style={styles.headerText}>
-                                    {col.label}
-                                    {sortKey === col.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-
-                    {filteredLeads.map((lead) => (
-                        <View key={lead._id} style={styles.tableRow}>
-                            <TouchableOpacity
-                                style={styles.cellSmall}
-                                onPress={() => toggleSelect(lead._id)}
-                            >
-                                <Text style={styles.checkText}>
-                                    {selected[lead._id] ? "☑" : "☐"}
+                                    {selectAll ? "☑" : "☐"}
                                 </Text>
                             </TouchableOpacity>
 
-                            <Text style={styles.cell}>{lead.personalInfo?.name}</Text>
-                            <Text style={styles.cell}>{lead.personalInfo?.phone}</Text>
-                            <Text style={styles.cell}>{lead.personalInfo?.email}</Text>
-                            <Text style={styles.cell}>{formatEnumLabel(lead.leadSource)}</Text>
-                            <Text style={styles.cell}>
-                                {formatEnumLabel(lead.segment)}
-                            </Text>
-
-                            <View style={[styles.cell, { paddingVertical: 6 }]}>
-                                <StatusBadge value={lead.status} />
-                            </View>
-
-                            <Text style={styles.cell}>{lead.priority}</Text>
-                            <Text style={styles.cell}>{lead.investmentSize?.amount ?? "-"}</Text>
-                            <Text style={styles.cell}>{lead.branch?.name}</Text>
-                            <Text style={styles.cell}>{lead.assignedTo?.name}</Text>
-
-                            <Text style={styles.cell}>
-                                {new Date(lead.createdAt).toLocaleDateString()}
-                            </Text>
-
-                            <TouchableOpacity onPress={() => openViewModal(lead)}>
-                                <Text style={[styles.cell, styles.linkText]}>View</Text>
-                            </TouchableOpacity>
-
-                            <View style={[styles.cell, { flexDirection: "row" }]}>
-                                <TouchableOpacity onPress={() => onEdit(lead)}>
-                                    <Text style={styles.actionEdit}>Edit</Text>
+                            {[
+                                { label: "Name", key: "name" },
+                                { label: "Phone", key: "phone" },
+                                { label: "Email", key: "email" },
+                                { label: "Source", key: "leadSource" },
+                                { label: "Segment", key: "segment" },
+                                { label: "Status", key: "status" },
+                                { label: "Priority", key: "priority" },
+                                { label: "Investment", key: "investment" },
+                                { label: "Branch", key: "branch" },
+                                { label: "Assigned", key: "assignedTo" },
+                                { label: "Created", key: "createdAt" },
+                                { label: "More" },
+                                { label: "Action" },
+                            ].map((col, i) => (
+                                <TouchableOpacity
+                                    key={i}
+                                    style={styles.headerCell}
+                                    onPress={() => col.key && onSort(col.key)}
+                                >
+                                    <Text style={styles.headerText}>
+                                        {col.label}
+                                        {sortKey === col.key
+                                            ? sortDir === "asc"
+                                                ? " ↑"
+                                                : " ↓"
+                                            : ""}
+                                    </Text>
                                 </TouchableOpacity>
-
-                                <TouchableOpacity onPress={() => onDelete(lead)}>
-                                    <Text style={styles.actionDelete}>Delete</Text>
-                                </TouchableOpacity>
-                            </View>
+                            ))}
                         </View>
-                    ))}
-                </View>
+
+                        {/* ===== TABLE BODY ===== */}
+                        {filteredLeads.map((lead) => (
+                            <View key={lead._id} style={styles.tableRow}>
+
+                                <TouchableOpacity
+                                    style={styles.cellSmall}
+                                    onPress={() => toggleSelect(lead._id)}
+                                >
+                                    <Text style={styles.checkText}>
+                                        {selected[lead._id] ? "☑" : "☐"}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <Text style={styles.cell}>{lead.personalInfo?.name}</Text>
+                                <Text style={styles.cell}>{lead.personalInfo?.phone}</Text>
+                                <Text style={styles.cell}>{lead.personalInfo?.email}</Text>
+                                <Text style={styles.cell}>
+                                    {formatEnumLabel(lead.leadSource)}
+                                </Text>
+                                <Text style={styles.cell}>
+                                    {formatEnumLabel(lead.segment)}
+                                </Text>
+
+                                <View style={[styles.cell, { paddingVertical: 6 }]}>
+                                    <StatusBadge value={lead.status} />
+                                </View>
+
+                                <Text style={styles.cell}>{lead.priority}</Text>
+                                <Text style={styles.cell}>
+                                    {lead.investmentSize?.amount ?? "-"}
+                                </Text>
+                                <Text style={styles.cell}>{lead.branch?.name}</Text>
+                                <Text style={styles.cell}>{lead.assignedTo?.name}</Text>
+
+                                <Text style={styles.cell}>
+                                    {new Date(lead.createdAt).toLocaleDateString()}
+                                </Text>
+
+                                <TouchableOpacity onPress={() => openViewModal(lead)}>
+                                    <Text style={[styles.cell, styles.linkText]}>
+                                        View
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <View style={[styles.cell, { flexDirection: "row" }]}>
+                                    <TouchableOpacity onPress={() => onEdit(lead)}>
+                                        <Text style={styles.actionEdit}>Edit</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity onPress={() => onDelete(lead)}>
+                                        <Text style={styles.actionDelete}>Delete</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                            </View>
+                        ))}
+
+                    </View>
+                </ScrollView>
             </ScrollView>
+
             <Modal transparent visible={assignModal} animationType="slide">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalBox}>

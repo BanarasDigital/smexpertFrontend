@@ -1,25 +1,12 @@
 import React from "react";
-import { Platform, KeyboardAvoidingView } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { KeyboardAvoidingView, Platform } from "react-native";
 
-export default function KeyboardWrapper({ children, extraScrollHeight = 80 }) {
-  if (Platform.OS === "android") {
-    return (
-      <KeyboardAwareScrollView
-        enableOnAndroid
-        extraScrollHeight={extraScrollHeight}
-        keyboardOpeningTime={0}
-        contentContainerStyle={{ flexGrow: 1 }}
-      >
-        {children}
-      </KeyboardAwareScrollView>
-    );
-  }
-
+export default function KeyboardWrapper({ children }) {
   return (
     <KeyboardAvoidingView
-      behavior="padding"
       style={{ flex: 1 }}
+      behavior={Platform.OS === "android" ? "height" : "padding"}
+      keyboardVerticalOffset={0}
     >
       {children}
     </KeyboardAvoidingView>

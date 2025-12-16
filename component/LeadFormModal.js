@@ -15,31 +15,48 @@ const capitalize = (str) =>
 
 const getId = (obj) => obj?._id ?? obj?.id ?? String(obj);
 const SelectModal = ({ visible, title, options, onSelect, onClose }) => (
-  <Modal transparent visible={visible} animationType="fade">
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalBox}>
-        <Text style={styles.modalTitle}>{title}</Text>
+  <Modal
+    transparent
+    visible={visible}
+    animationType="fade"
+    onRequestClose={onClose}
+  >
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "android" ? "height" : "padding"}
+      keyboardVerticalOffset={0}
+    >
+      <View style={styles.modalOverlay}>
 
-        <ScrollView style={{ maxHeight: 260 }}>
-          {options.map((op) => (
-            <TouchableOpacity
-              key={op.value}
-              style={styles.modalOption}
-              onPress={() => {
-                onSelect(op.value);
-                onClose();
-              }}
-            >
-              <Text style={styles.modalOptionText}>{op.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <View style={styles.modalBox}>
+          <Text style={styles.modalTitle}>{title}</Text>
 
-        <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
-          <Text style={styles.modalCloseText}>Close</Text>
-        </TouchableOpacity>
+          <ScrollView
+            style={{ maxHeight: 260 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {options.map((op) => (
+              <TouchableOpacity
+                key={op.value}
+                style={styles.modalOption}
+                onPress={() => {
+                  onSelect(op.value);
+                  onClose();
+                }}
+              >
+                <Text style={styles.modalOptionText}>{op.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
+            <Text style={styles.modalCloseText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+
       </View>
-    </View>
+    </KeyboardAvoidingView>
   </Modal>
 );
 export default function LeadFormModal({
@@ -511,7 +528,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     marginTop: 10,
-    marginBottom:45,
+    marginBottom: 45,
   },
   footerBtn: {
     paddingHorizontal: 16,
@@ -541,10 +558,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalBox: {
-    backgroundColor: "#FFFFFF",
+    width: "90%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
     padding: 16,
-    borderRadius: 14,
-    width: "80%",
+    maxHeight: "85%",
   },
   modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 10 },
   modalOption: {
