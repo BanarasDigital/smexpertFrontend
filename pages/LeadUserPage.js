@@ -122,6 +122,7 @@ export default function LeadUserPage() {
       res = await apiPost(`/lead/${activeLead._id}/notes`, {
         content: noteContent.trim(),
         type: noteType,
+        status: noteStatus, // ✅ REQUIRED
       });
     } else {
       res = await apiPut(
@@ -129,6 +130,7 @@ export default function LeadUserPage() {
         {
           content: noteContent.trim(),
           type: noteType,
+          status: noteStatus, // ✅ REQUIRED
         }
       );
     }
@@ -592,7 +594,7 @@ Failed: ${json.failed}`
                     <Text style={styles.noteContent}>Message: {n.content}</Text>
                     <Text style={styles.noteMeta}>By: {n.addedBy?.name}</Text>
                     <Text style={styles.noteMeta}>
-                      At: {new Date(n.addedAt).toLocaleString()}
+                     At: {new Date(n.updatedAt || n.addedAt).toLocaleString()}
                     </Text>
                   </View>
                 ))}
