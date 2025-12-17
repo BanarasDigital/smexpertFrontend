@@ -4,7 +4,7 @@ import Constants from "expo-constants";
 import { API_BASE_URL } from "./config";
 
 // Register for push notifications
-export async function registerForPushNotifications(projectId = "smexpert") {
+export async function registerForPushNotifications(projectId = "dc6a1e35-8228-4feb-8c66-fa22f541b9e4") {
   try {
     const { status } = await Notifications.requestPermissionsAsync();
     if (status !== "granted") {

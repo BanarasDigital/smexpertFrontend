@@ -56,7 +56,7 @@ export default function App() {
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ||
     Constants.easConfig?.projectId ||
-    "33c430e6-dd87-4c80-974b-27aa58bc524b";
+    "dc6a1e35-8228-4feb-8c66-fa22f541b9e4";
 
   const handleNotificationNavigation = useCallback((data) => {
     if (!data) return;

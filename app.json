@@ -47,9 +47,7 @@
         {
           "icon": "./assets/icon.png",
           "color": "#0A84FF",
-          "sounds": [
-            "default"
-          ]
+          "sounds": ["notification"]
         }
       ],
       "@react-native-firebase/app",
@@ -57,7 +55,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "33c430e6-dd87-4c80-974b-27aa58bc524b"
+        "projectId": "dc6a1e35-8228-4feb-8c66-fa22f541b9e4"
       }
     },
     "web": {
