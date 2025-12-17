@@ -45,9 +45,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
-          "color": "#0A84FF",
-          "sounds": ["notification"]
+          "icon": "./assets/icon.png"
         }
       ],
       "@react-native-firebase/app",

@@ -252,18 +252,14 @@ export default function LeadTable({
             <ScrollView
                 style={{ flex: 1 }}
                 keyboardShouldPersistTaps="handled"
-                nestedScrollEnabled
-                contentContainerStyle={{ flexGrow: 1 }}
                 showsVerticalScrollIndicator={true}
             >
                 <ScrollView
                     horizontal
                     nestedScrollEnabled
-                    showsHorizontalScrollIndicator={false}
-                >
-                    <View style={{ minWidth: 1850 }}>
+                    showsHorizontalScrollIndicator={true}
+                >                    <View style={{ minWidth: 1850 }}>
 
-                        {/* ===== TABLE HEADER ===== */}
                         <View style={styles.tableHeader}>
                             <TouchableOpacity
                                 style={styles.headerCellSmall}
@@ -307,7 +303,7 @@ export default function LeadTable({
                         </View>
 
                         {/* ===== TABLE BODY ===== */}
-                        {filteredLeads.map((lead) => (
+                        {filteredLeads.map(lead => (
                             <View key={lead._id} style={styles.tableRow}>
 
                                 <TouchableOpacity
@@ -322,12 +318,8 @@ export default function LeadTable({
                                 <Text style={styles.cell}>{lead.personalInfo?.name}</Text>
                                 <Text style={styles.cell}>{lead.personalInfo?.phone}</Text>
                                 <Text style={styles.cell}>{lead.personalInfo?.email}</Text>
-                                <Text style={styles.cell}>
-                                    {formatEnumLabel(lead.leadSource)}
-                                </Text>
-                                <Text style={styles.cell}>
-                                    {formatEnumLabel(lead.segment)}
-                                </Text>
+                                <Text style={styles.cell}>{formatEnumLabel(lead.leadSource)}</Text>
+                                <Text style={styles.cell}>{formatEnumLabel(lead.segment)}</Text>
 
                                 <View style={[styles.cell, { paddingVertical: 6 }]}>
                                     <StatusBadge value={lead.status} />
@@ -345,9 +337,7 @@ export default function LeadTable({
                                 </Text>
 
                                 <TouchableOpacity onPress={() => openViewModal(lead)}>
-                                    <Text style={[styles.cell, styles.linkText]}>
-                                        View
-                                    </Text>
+                                    <Text style={[styles.cell, styles.linkText]}>View</Text>
                                 </TouchableOpacity>
 
                                 <View style={[styles.cell, { flexDirection: "row" }]}>
@@ -366,6 +356,7 @@ export default function LeadTable({
                     </View>
                 </ScrollView>
             </ScrollView>
+
 
             <Modal transparent visible={assignModal} animationType="slide">
                 <View style={styles.modalOverlay}>
