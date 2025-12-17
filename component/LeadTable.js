@@ -662,4 +662,18 @@ const styles = StyleSheet.create({
         textAlign: "center",
         fontWeight: "700",
     },
+    tableRow: {
+  flexDirection: "row",
+  minHeight: 44,
+  borderBottomWidth: 1,
+  borderColor: "#E5E7EB",
+  alignItems: "center",
+},
+
+cell: {
+  width: 140,
+  paddingHorizontal: 10,
+  fontSize: 12,
+},
+
 });
