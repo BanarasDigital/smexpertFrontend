@@ -88,9 +88,11 @@ export default function LeadUserPage() {
     setNoteModalOpen(true);
     setNoteContent("");
     setNoteType("general");
+    setNoteStatus("in_progress");
     setEditMode(false);
     setEditNoteId(null);
   };
+
 
   const closeNotesModal = () => {
     setNoteModalOpen(false);
@@ -148,22 +150,35 @@ export default function LeadUserPage() {
       await refreshLeadNotes(activeLead._id);
       await fetchLeads();
 
+      // 🔥 FORCE VIEW MODAL SYNC
+      setSelectedLeadForView((prev) =>
+        prev && prev._id === activeLead._id
+          ? { ...prev, notes: activeLead.notes }
+          : prev
+      );
+
       closeNotesModal();
     }
   };
 
-const deleteNote = async (leadId, noteId) => {
-  const res = await apiDelete(`/lead/${leadId}/notes/${noteId}`);
+  const deleteNote = async (leadId, noteId) => {
+    const res = await apiDelete(`/lead/${leadId}/notes/${noteId}`);
 
-  if (res?.success) {
-    await refreshLeadNotes(leadId);
-    setSelectedLeadForView(prev =>
-      prev
-        ? { ...prev, notes: prev.notes.filter(n => n._id !== noteId) }
-        : null
-    );
-  }
-};
+    if (res?.success) {
+      await refreshLeadNotes(leadId);
+      setSelectedLeadForView((prev) =>
+        prev
+          ? { ...prev, notes: prev.notes.filter((n) => n._id !== noteId) }
+          : null
+      );
+      setActiveLead((prev) =>
+        prev
+          ? { ...prev, notes: prev.notes.filter((n) => n._id !== noteId) }
+          : null
+      );
+    }
+  };
+
 
   const handleImport = async () => {
     try {
