@@ -130,7 +130,7 @@ export default function LeadUserPage() {
         {
           content: noteContent.trim(),
           type: noteType,
-          status: noteStatus, // ✅ REQUIRED
+          status: noteStatus,
         }
       );
     }
@@ -151,6 +151,11 @@ export default function LeadUserPage() {
 
     if (res?.success) {
       await refreshLeadNotes(leadId);
+
+      // ✅ force re-render of modal notes
+      setSelectedLeadForView((prev) =>
+        prev ? { ...prev, notes: prev.notes.filter(n => n._id !== noteId) } : null
+      );
     }
   };
   const handleImport = async () => {
@@ -562,10 +567,12 @@ Failed: ${json.failed}`
             <ScrollView style={{ maxHeight: 350 }}>
               {[...(selectedLeadForView?.notes || [])]
                 .sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt))
-                .map((n, i) => (
-                  <View key={i} style={styles.noteBox}>
+                .map((n) => (
+                  <View key={n._id} style={styles.noteBox}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                      <Text style={styles.noteType}>Status: {TYPE_LABEL(n.type)}</Text>
+                      <Text style={styles.noteType}>
+                        Status: {TYPE_LABEL(n.type)}
+                      </Text>
 
                       <View style={{ flexDirection: "row", gap: 12 }}>
                         <TouchableOpacity
@@ -575,7 +582,7 @@ Failed: ${json.failed}`
                             setEditNoteId(n._id);
                             setNoteContent(n.content);
                             setNoteType(n.type);
-                            setNoteStatus(n.status || "in_progress");
+                            setNoteStatus(n.status ?? "in_progress");
                             setSelectedLeadForView(null);
                             setNoteModalOpen(true);
                           }}
@@ -594,10 +601,11 @@ Failed: ${json.failed}`
                     <Text style={styles.noteContent}>Message: {n.content}</Text>
                     <Text style={styles.noteMeta}>By: {n.addedBy?.name}</Text>
                     <Text style={styles.noteMeta}>
-                     At: {new Date(n.updatedAt || n.addedAt).toLocaleString()}
+                      At: {new Date(n.updatedAt || n.addedAt).toLocaleString()}
                     </Text>
                   </View>
                 ))}
+
             </ScrollView>
 
             <TouchableOpacity

@@ -250,62 +250,70 @@ export default function LeadTable({
                 </View>
             )}
             <ScrollView
-                style={{ flex: 1 }}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={true}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                nestedScrollEnabled
+                directionalLockEnabled
+                scrollEventThrottle={16}
             >
-                <ScrollView
-                    horizontal
-                    nestedScrollEnabled
-                    showsHorizontalScrollIndicator={true}
-                >                    <View style={{ minWidth: 1850 }}>
+                <View style={{ minWidth: 1850 }}>
 
-                        <View style={styles.tableHeader}>
+                    {/* ===== TABLE HEADER ===== */}
+                    <View style={styles.tableHeader}>
+                        <TouchableOpacity
+                            style={styles.headerCellSmall}
+                            onPress={toggleSelectAll}
+                        >
+                            <Text style={styles.headerText}>
+                                {selectAll ? "☑" : "☐"}
+                            </Text>
+                        </TouchableOpacity>
+
+                        {[
+                            { label: "Name", key: "name" },
+                            { label: "Phone", key: "phone" },
+                            { label: "Email", key: "email" },
+                            { label: "Source", key: "leadSource" },
+                            { label: "Segment", key: "segment" },
+                            { label: "Status", key: "status" },
+                            { label: "Priority", key: "priority" },
+                            { label: "Investment", key: "investment" },
+                            { label: "Branch", key: "branch" },
+                            { label: "Assigned", key: "assignedTo" },
+                            { label: "Created", key: "createdAt" },
+                            { label: "More" },
+                            { label: "Action" },
+                        ].map((col, i) => (
                             <TouchableOpacity
-                                style={styles.headerCellSmall}
-                                onPress={toggleSelectAll}
+                                key={i}
+                                style={styles.headerCell}
+                                onPress={() => col.key && onSort(col.key)}
                             >
                                 <Text style={styles.headerText}>
-                                    {selectAll ? "☑" : "☐"}
+                                    {col.label}
+                                    {sortKey === col.key
+                                        ? sortDir === "asc"
+                                            ? " ↑"
+                                            : " ↓"
+                                        : ""}
                                 </Text>
                             </TouchableOpacity>
+                        ))}
+                    </View>
 
-                            {[
-                                { label: "Name", key: "name" },
-                                { label: "Phone", key: "phone" },
-                                { label: "Email", key: "email" },
-                                { label: "Source", key: "leadSource" },
-                                { label: "Segment", key: "segment" },
-                                { label: "Status", key: "status" },
-                                { label: "Priority", key: "priority" },
-                                { label: "Investment", key: "investment" },
-                                { label: "Branch", key: "branch" },
-                                { label: "Assigned", key: "assignedTo" },
-                                { label: "Created", key: "createdAt" },
-                                { label: "More" },
-                                { label: "Action" },
-                            ].map((col, i) => (
-                                <TouchableOpacity
-                                    key={i}
-                                    style={styles.headerCell}
-                                    onPress={() => col.key && onSort(col.key)}
-                                >
-                                    <Text style={styles.headerText}>
-                                        {col.label}
-                                        {sortKey === col.key
-                                            ? sortDir === "asc"
-                                                ? " ↑"
-                                                : " ↓"
-                                            : ""}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {/* ===== TABLE BODY ===== */}
-                        {filteredLeads.map(lead => (
-                            <View key={lead._id} style={styles.tableRow}>
-
+                    {/* ===== VERTICAL SCROLL (FlatList) ===== */}
+                    <FlatList
+                        data={filteredLeads}
+                        keyExtractor={(item) => item._id}
+                        showsVerticalScrollIndicator={false}
+                        nestedScrollEnabled
+                        scrollEventThrottle={16}
+                        removeClippedSubviews
+                        initialNumToRender={15}
+                        maxToRenderPerBatch={20}
+                        windowSize={10}
+                        renderItem={({ item: lead }) => (
+                            <View style={styles.tableRow}>
                                 <TouchableOpacity
                                     style={styles.cellSmall}
                                     onPress={() => toggleSelect(lead._id)}
@@ -329,6 +337,7 @@ export default function LeadTable({
                                 <Text style={styles.cell}>
                                     {lead.investmentSize?.amount ?? "-"}
                                 </Text>
+
                                 <Text style={styles.cell}>{lead.branch?.name}</Text>
                                 <Text style={styles.cell}>{lead.assignedTo?.name}</Text>
 
@@ -340,21 +349,19 @@ export default function LeadTable({
                                     <Text style={[styles.cell, styles.linkText]}>View</Text>
                                 </TouchableOpacity>
 
-                                <View style={[styles.cell, { flexDirection: "row" }]}>
+                                <View style={[styles.cell, { flexDirection: "row", gap: 6 }]}>
                                     <TouchableOpacity onPress={() => onEdit(lead)}>
                                         <Text style={styles.actionEdit}>Edit</Text>
                                     </TouchableOpacity>
-
                                     <TouchableOpacity onPress={() => onDelete(lead)}>
                                         <Text style={styles.actionDelete}>Delete</Text>
                                     </TouchableOpacity>
                                 </View>
-
                             </View>
-                        ))}
+                        )}
+                    />
 
-                    </View>
-                </ScrollView>
+                </View>
             </ScrollView>
 
 
@@ -663,17 +670,17 @@ const styles = StyleSheet.create({
         fontWeight: "700",
     },
     tableRow: {
-  flexDirection: "row",
-  minHeight: 44,
-  borderBottomWidth: 1,
-  borderColor: "#E5E7EB",
-  alignItems: "center",
-},
+        flexDirection: "row",
+        minHeight: 44,
+        borderBottomWidth: 1,
+        borderColor: "#E5E7EB",
+        alignItems: "center",
+    },
 
-cell: {
-  width: 140,
-  paddingHorizontal: 10,
-  fontSize: 12,
-},
+    cell: {
+        width: 140,
+        paddingHorizontal: 10,
+        fontSize: 12,
+    },
 
 });
