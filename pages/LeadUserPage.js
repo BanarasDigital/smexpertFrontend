@@ -114,7 +114,15 @@ export default function LeadUserPage() {
   };
 
   const handleAddOrEditNote = async () => {
-    if (!noteContent.trim()) return alert("Please write note content.");
+    if (!activeLead?._id) {
+      alert("Lead not found. Please reopen notes.");
+      return;
+    }
+
+    if (!noteContent.trim()) {
+      alert("Please write note content.");
+      return;
+    }
 
     let res;
 
@@ -122,17 +130,14 @@ export default function LeadUserPage() {
       res = await apiPost(`/lead/${activeLead._id}/notes`, {
         content: noteContent.trim(),
         type: noteType,
-        status: noteStatus, // ✅ REQUIRED
+        status: noteStatus,
       });
     } else {
-      res = await apiPut(
-        `/lead/${activeLead._id}/notes/${editNoteId}`,
-        {
-          content: noteContent.trim(),
-          type: noteType,
-          status: noteStatus,
-        }
-      );
+      res = await apiPut(`/lead/${activeLead._id}/notes/${editNoteId}`, {
+        content: noteContent.trim(),
+        type: noteType,
+        status: noteStatus,
+      });
     }
 
     if (res?.success) {
@@ -146,18 +151,20 @@ export default function LeadUserPage() {
       closeNotesModal();
     }
   };
-  const deleteNote = async (leadId, noteId) => {
-    const res = await apiDelete(`/lead/${leadId}/notes/${noteId}`);
 
-    if (res?.success) {
-      await refreshLeadNotes(leadId);
+const deleteNote = async (leadId, noteId) => {
+  const res = await apiDelete(`/lead/${leadId}/notes/${noteId}`);
 
-      // ✅ force re-render of modal notes
-      setSelectedLeadForView((prev) =>
-        prev ? { ...prev, notes: prev.notes.filter(n => n._id !== noteId) } : null
-      );
-    }
-  };
+  if (res?.success) {
+    await refreshLeadNotes(leadId);
+    setSelectedLeadForView(prev =>
+      prev
+        ? { ...prev, notes: prev.notes.filter(n => n._id !== noteId) }
+        : null
+    );
+  }
+};
+
   const handleImport = async () => {
     try {
       const pick = await DocumentPicker.getDocumentAsync({
@@ -589,6 +596,7 @@ Failed: ${json.failed}`
                         >
                           <Text style={{ fontSize: 18 }}>✏️</Text>
                         </TouchableOpacity>
+
 
                         <TouchableOpacity
                           onPress={() => deleteNote(selectedLeadForView._id, n._id)}

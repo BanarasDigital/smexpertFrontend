@@ -8,6 +8,7 @@ import {
     Pressable,
     Modal,
     TextInput,
+    FlatList,
 } from "react-native";
 import StatusBadge from "./StatusBadge";
 import { DataContext } from "../context";
@@ -249,16 +250,14 @@ export default function LeadTable({
                     </View>
                 </View>
             )}
+
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 nestedScrollEnabled
                 directionalLockEnabled
-                scrollEventThrottle={16}
             >
                 <View style={{ minWidth: 1850 }}>
-
-                    {/* ===== TABLE HEADER ===== */}
                     <View style={styles.tableHeader}>
                         <TouchableOpacity
                             style={styles.headerCellSmall}
@@ -301,17 +300,17 @@ export default function LeadTable({
                         ))}
                     </View>
 
-                    {/* ===== VERTICAL SCROLL (FlatList) ===== */}
+
                     <FlatList
                         data={filteredLeads}
                         keyExtractor={(item) => item._id}
-                        showsVerticalScrollIndicator={false}
                         nestedScrollEnabled
-                        scrollEventThrottle={16}
-                        removeClippedSubviews
-                        initialNumToRender={15}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                        initialNumToRender={12}
                         maxToRenderPerBatch={20}
-                        windowSize={10}
+                        windowSize={7}
+                        removeClippedSubviews={false} // ✅ IMPORTANT
                         renderItem={({ item: lead }) => (
                             <View style={styles.tableRow}>
                                 <TouchableOpacity
@@ -360,7 +359,6 @@ export default function LeadTable({
                             </View>
                         )}
                     />
-
                 </View>
             </ScrollView>
 
@@ -669,18 +667,5 @@ const styles = StyleSheet.create({
         textAlign: "center",
         fontWeight: "700",
     },
-    tableRow: {
-        flexDirection: "row",
-        minHeight: 44,
-        borderBottomWidth: 1,
-        borderColor: "#E5E7EB",
-        alignItems: "center",
-    },
-
-    cell: {
-        width: 140,
-        paddingHorizontal: 10,
-        fontSize: 12,
-    },
-
+  
 });
