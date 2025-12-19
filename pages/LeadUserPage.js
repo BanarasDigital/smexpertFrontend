@@ -115,69 +115,90 @@ export default function LeadUserPage() {
     }
   };
 
-  const handleAddOrEditNote = async () => {
-    if (!activeLead?._id) {
-      alert("Lead not found. Please reopen notes.");
-      return;
-    }
+const handleAddOrEditNote = async () => {
+  if (!activeLead?._id) {
+    alert("Lead not found. Please reopen notes.");
+    return;
+  }
 
-    if (!noteContent.trim()) {
-      alert("Please write note content.");
-      return;
-    }
+  if (!noteContent.trim()) {
+    alert("Please write note content.");
+    return;
+  }
 
+  try {
     let res;
 
+    const payload = {
+      content: noteContent.trim(),
+      type: noteType,
+      status: noteStatus,
+    };
+
     if (!editMode) {
-      res = await apiPost(`/lead/${activeLead._id}/notes`, {
-        content: noteContent.trim(),
-        type: noteType,
-        status: noteStatus,
-      });
+      res = await apiPost(`/lead/${activeLead._id}/notes`, payload);
     } else {
-      res = await apiPut(`/lead/${activeLead._id}/notes/${editNoteId}`, {
-        content: noteContent.trim(),
-        type: noteType,
-        status: noteStatus,
-      });
+      res = await apiPut(
+        `/lead/${activeLead._id}/notes/${editNoteId}`,
+        payload
+      );
     }
 
-    if (res?.success) {
-      await apiPut(`/lead/${activeLead._id}/status`, {
-        status: noteStatus,
-      });
+    if (!res?.success) {
+      alert(res?.message || "Failed to save note");
+      return;
+    }
+    await apiPut(`/lead/${activeLead._id}/status`, {
+      status: noteStatus,
+    });
+    const notesRes = await apiGet(`/lead/${activeLead._id}/notes`);
 
-      await refreshLeadNotes(activeLead._id);
-      await fetchLeads();
-
-      // 🔥 FORCE VIEW MODAL SYNC
-      setSelectedLeadForView((prev) =>
-        prev && prev._id === activeLead._id
-          ? { ...prev, notes: activeLead.notes }
-          : prev
+    if (notesRes?.success) {
+      setActiveLead((prev) =>
+        prev ? { ...prev, notes: notesRes.notes } : prev
       );
 
-      closeNotesModal();
+      setSelectedLeadForView((prev) =>
+        prev ? { ...prev, notes: notesRes.notes } : prev
+      );
     }
-  };
 
-  const deleteNote = async (leadId, noteId) => {
+    await fetchLeads(); 
+    closeNotesModal();
+  } catch (err) {
+    console.error("Add/Edit note error:", err);
+    alert("Something went wrong while saving note");
+  }
+};
+
+
+const deleteNote = async (leadId, noteId) => {
+  try {
     const res = await apiDelete(`/lead/${leadId}/notes/${noteId}`);
 
-    if (res?.success) {
-      await refreshLeadNotes(leadId);
-      setSelectedLeadForView((prev) =>
-        prev
-          ? { ...prev, notes: prev.notes.filter((n) => n._id !== noteId) }
-          : null
-      );
+    if (!res?.success) {
+      alert(res?.message || "Failed to delete note");
+      return;
+    }
+    const notesRes = await apiGet(`/lead/${leadId}/notes`);
+
+    if (notesRes?.success) {
       setActiveLead((prev) =>
-        prev
-          ? { ...prev, notes: prev.notes.filter((n) => n._id !== noteId) }
-          : null
+        prev ? { ...prev, notes: notesRes.notes } : prev
+      );
+
+      setSelectedLeadForView((prev) =>
+        prev ? { ...prev, notes: notesRes.notes } : prev
       );
     }
-  };
+
+    await fetchLeads(); 
+  } catch (err) {
+    console.error("Delete note error:", err);
+    alert("Something went wrong while deleting note");
+  }
+};
+
 
 
   const handleImport = async () => {

@@ -122,7 +122,7 @@ export default function LeadTable({
     };
     const handleBulkAssign = async () => {
         if (user?.user_type !== "admin") {
-            console.log("❌ Permission denied — User is not admin:", user?.user_type);
+            console.log("Permission denied — User is not admin:", user?.user_type);
             alert("Only admin can bulk assign leads.");
             return;
         }
@@ -143,7 +143,7 @@ export default function LeadTable({
             return;
         }
 
-        console.log("🔥 Sending Bulk Assign Request >>>", {
+        console.log("Sending Bulk Assign Request >>>", {
             leads: ids,
             branchId: selectedBranch,
             userId: selectedUser,
@@ -157,19 +157,19 @@ export default function LeadTable({
                 userId: selectedUser,
             });
 
-            console.log("📌 Raw response received:", res);
+            console.log("Raw response received:", res);
         } catch (error) {
-            console.log("❌ ERROR calling /lead/bulk-assign:", error);
+            console.log("calling /lead/bulk-assign:", error);
             alert("Server error — please check your backend logs.");
             return;
         }
         if (!res || typeof res !== "object") {
-            console.log("❌ NULL/Invalid response from backend:", res);
+            console.log("NULL/Invalid response from backend:", res);
             alert("Unexpected server response. Check backend implementation.");
             return;
         }
         if (res.success) {
-            console.log("🎉 Bulk Assign Success — Updated Leads:", res.updatedLeads);
+            console.log("Bulk Assign Success — Updated Leads:", res.updatedLeads);
 
             alert(`Assigned ${res.updatedCount} leads successfully`);
             if (typeof fetchLeads === "function") {
@@ -180,7 +180,7 @@ export default function LeadTable({
             setSelectAll(false);
             setAssignModal(false);
         } else {
-            console.log("❌ Backend returned failure:", res.message);
+            console.log("Backend returned failure:", res.message);
             alert(res.message || "Bulk assign failed.");
         }
     };
@@ -310,7 +310,7 @@ export default function LeadTable({
                         initialNumToRender={12}
                         maxToRenderPerBatch={20}
                         windowSize={7}
-                        removeClippedSubviews={false} // ✅ IMPORTANT
+                        removeClippedSubviews={false} 
                         renderItem={({ item: lead }) => (
                             <View style={styles.tableRow}>
                                 <TouchableOpacity
