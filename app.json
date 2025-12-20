@@ -22,6 +22,7 @@
     "android": {
       "googleServicesFile": "./google-services.json",
       "package": "com.ifdadevelopment.myapp",
+       "useNextNotificationsApi": true,
       "buildToolsVersion": "34.0.0",
       "softwareKeyboardLayoutMode": "resize",
       "compileSdkVersion": 34,
