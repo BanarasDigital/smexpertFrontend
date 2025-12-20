@@ -45,7 +45,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png"
+          "icon": "./assets/icon.png",
+          "defaultChannel": "default"
         }
       ],
       "@react-native-firebase/app",
