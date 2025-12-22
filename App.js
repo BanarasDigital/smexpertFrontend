@@ -29,7 +29,7 @@ import LeadUserPage from "./pages/LeadUserPage";
 
 const Stack = createNativeStackNavigator();
 
-/** Foreground display config */
+/** ✅ Foreground display config (KEEP ONLY THIS ONE) */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -76,7 +76,6 @@ export default function App() {
         break;
 
       default:
-        // fallback
         console.log("Unknown notification type:", data);
     }
   }, []);
@@ -84,8 +83,8 @@ export default function App() {
   useEffect(() => {
     checkSession();
   }, []);
+
   useEffect(() => {
-    // 🔄 Reset badge when app becomes active / opens
     Notifications.setBadgeCountAsync(0);
   }, []);
 
@@ -95,7 +94,6 @@ export default function App() {
 
     (async () => {
       try {
-        // ✅ Android 13+ runtime permission
         if (Platform.OS === "android" && Platform.Version >= 33) {
           const perm = await Notifications.getPermissionsAsync();
           if (perm.status !== "granted") {
@@ -107,12 +105,10 @@ export default function App() {
 
         const isExpoGo = Constants.appOwnership === "expo";
         if (isExpoGo) {
-          // Expo Go won’t receive FCM push. Foreground local tests still work.
           setReady(true);
           return;
         }
 
-        // ✅ Firebase messaging for APK
         const messaging = require("@react-native-firebase/messaging").default;
 
         await messaging().registerDeviceForRemoteMessages();
@@ -121,14 +117,13 @@ export default function App() {
         const fcmToken = await messaging().getToken();
         pushTokenRef.current = fcmToken;
 
-        // ✅ Save token to YOUR backend (requires projectId)
         if (fcmToken) {
           await fetch(`${API_BASE_URL}/save-token`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               token: fcmToken,
-              projectId,             // ✅ REQUIRED by backend
+              projectId,
               platform: Platform.OS,
               meta: { userId: user?._id || null },
             }),
@@ -148,21 +143,18 @@ export default function App() {
                 meta: { userId: user?._id || null },
               }),
             });
-          } catch { }
+          } catch {}
         });
 
-        // ✅ FOREGROUND: show via expo-notifications
         unsubMessage = messaging().onMessage(async (remoteMessage) => {
           const data = remoteMessage.data || {};
           const myId = String(user?._id || "");
 
-          // no self notifications
           if (
             (data.type === "private_chat" || data.type === "group_chat") &&
             String(data.senderId) === myId
           ) return;
 
-          // admin-only note
           if (data.type === "lead_note_added" && data.adminOnly === "true" && user?.role !== "admin")
             return;
 
@@ -170,36 +162,29 @@ export default function App() {
             data.type === "private_chat"
               ? `💬 ${data.senderName || "New Message"}`
               : data.type === "group_chat"
-                ? `👥 ${data.groupName || "Group"}`
-                : data.type === "lead_created"
-                  ? "📌 New Lead Assigned"
-                  : data.type === "lead_note_added"
-                    ? "📝 Lead Note Added"
-                    : data.title || "Notification";
+              ? `👥 ${data.groupName || "Group"}`
+              : data.type === "lead_created"
+              ? "📌 New Lead Assigned"
+              : data.type === "lead_note_added"
+              ? "📝 Lead Note Added"
+              : data.title || "Notification";
 
           const body =
             data.type === "private_chat"
               ? data.message || ""
               : data.type === "group_chat"
-                ? `${data.senderName || ""}: ${data.message || ""}`
-                : data.body || data.message || "You have a new notification";
-
+              ? `${data.senderName || ""}: ${data.message || ""}`
+              : data.body || data.message || "You have a new notification";
 
           const currentBadge = await Notifications.getBadgeCountAsync();
           const nextBadge = currentBadge + 1;
 
           await Notifications.scheduleNotificationAsync({
-            content: {
-              title,
-              body,
-              data,
-              badge: nextBadge,
-            },
+            content: { title, body, data, badge: nextBadge },
             trigger: null,
           });
 
           await Notifications.setBadgeCountAsync(nextBadge);
-
         });
 
         setReady(true);
@@ -215,7 +200,6 @@ export default function App() {
     };
   }, [user?._id, user?.role]);
 
-  // ✅ Tap handling
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((res) => {
       const data = res.notification.request.content.data;
