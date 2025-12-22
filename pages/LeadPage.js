@@ -10,6 +10,7 @@ import {
     TextInput,
     Linking,
     Modal,
+    Platform,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
