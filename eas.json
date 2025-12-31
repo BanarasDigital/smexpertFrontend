@@ -1,0 +1,56 @@
+{
+  "cli": {
+    "version": ">=3.8.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EAS_SKIP_AUTO_FINGERPRINT": "1",
+        "NPM_FLAGS": "--legacy-peer-deps"
+      }
+    },
+
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "releaseChannel": "preview"
+      },
+      "env": {
+        "EAS_SKIP_AUTO_FINGERPRINT": "1",
+        "NPM_FLAGS": "--legacy-peer-deps"
+      }
+    },
+
+    "apk": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EAS_SKIP_AUTO_FINGERPRINT": "1",
+        "NPM_FLAGS": "--legacy-peer-deps"
+      }
+    },
+
+    "production": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease",
+        "releaseChannel": "default"
+      },
+      "env": {
+        "EAS_SKIP_AUTO_FINGERPRINT": "1",
+        "NPM_FLAGS": "--legacy-peer-deps",
+        "EXPO_USE_FAST_RESOLVER": "false"
+      }
+    }
+  }
+}
