@@ -123,7 +123,7 @@ export default function App() {
           console.log("Unknown notification type:", data);
       }
     },
-    [user?.role]
+    [user?.user_type]
   );
 
   // ✅ Boot
@@ -185,33 +185,50 @@ export default function App() {
         const fcmToken = await messaging().getToken();
 
         // ✅ Save token with userId always
+        // ✅ Save token with userId + userType
         if (fcmToken) {
           await fetch(`${API_BASE_URL}/save-token`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`, // ✅ REQUIRED
+            },
             body: JSON.stringify({
               token: fcmToken,
               projectId,
               platform: Platform.OS,
-              meta: { userId: user?._id || null },
+              meta: {
+                userId: user?._id || null,          // ✅ FIX
+                userType: user?.user_type || null, // ✅ FIX (admin | user)
+              },
             }),
           });
         }
+
 
         unsubToken = messaging().onTokenRefresh(async (t) => {
           try {
             await fetch(`${API_BASE_URL}/save-token`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
               body: JSON.stringify({
                 token: t,
                 projectId,
                 platform: Platform.OS,
-                meta: { userId: user?._id || null },
+                meta: {
+                  userId: user?._id || null,          // ✅ FIX
+                  userType: user?.user_type || null, // ✅ FIX
+                },
               }),
             });
-          } catch { }
+          } catch (e) {
+            console.log("Token refresh save failed", e);
+          }
         });
+
 
         // ✅ Foreground notifications (Data-only, title/body always)
         unsubMessage = messaging().onMessage(async (remoteMessage) => {
@@ -227,7 +244,7 @@ export default function App() {
           ) return;
 
           // Admin-only note
-          if (data.type === "lead_note_added" && data.adminOnly === "true" && user?.role !== "admin")
+          if (data.type === "lead_note_added" && data.adminOnly === "true" && user?.user_type !== "admin")
             return;
 
           // ✅ Title/body should always come from backend
@@ -263,7 +280,7 @@ export default function App() {
       unsubMessage && unsubMessage();
       unsubToken && unsubToken();
     };
-  }, [user?._id, user?.role, shouldProcessMessage, projectId]);
+  }, [user?._id, user?.user_type, shouldProcessMessage, projectId]);
 
   // ✅ Tap handling
   useEffect(() => {
