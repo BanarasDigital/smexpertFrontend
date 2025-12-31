@@ -247,26 +247,33 @@ export default function App() {
           if (data.type === "lead_note_added" && data.adminOnly === "true" && user?.user_type !== "admin")
             return;
 
-          // ✅ Title/body should always come from backend
           const title = data.title || "Notification";
           const body = data.body || data.message || "";
 
-          // ✅ increment badge
-          badgeRef.current += 1;
-          const nextBadge = badgeRef.current;
+          let currentBadge = 0;
+
+          try {
+            currentBadge = await Notifications.getBadgeCountAsync();
+          } catch {
+            currentBadge = badgeRef.current || 0;
+          }
+
+          const nextBadge = Number(currentBadge || 0) + 1;
+          badgeRef.current = nextBadge;
 
           await Notifications.scheduleNotificationAsync({
             content: {
               title,
               body,
               data,
-              badge: nextBadge,
+              badge: nextBadge, // ✅ TOTAL COUNT
               sound: "default",
             },
             trigger: null,
           });
 
           await Notifications.setBadgeCountAsync(nextBadge);
+
         });
 
         setReady(true);

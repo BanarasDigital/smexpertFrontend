@@ -3,15 +3,15 @@ import "react-native-gesture-handler";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { registerRootComponent } from "expo";
 import * as Notifications from "expo-notifications";
-import { Platform } from "react-native";
+import { Platform, SafeAreaView } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import App from "./App";
 import { DataProviderFuncComp } from "./context";
 import { NavigationContainer } from "@react-navigation/native";
 import { navigationRef } from "./navserviceRef";
-import Constants from "expo-constants";
 
 /**
- * ✅ ALWAYS allow notifications in foreground (CRITICAL)
+ * ✅ ALWAYS allow notifications in foreground
  */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -22,7 +22,7 @@ Notifications.setNotificationHandler({
 });
 
 /**
- * ✅ Create Android channel ONCE
+ * ✅ Android notification channel (once)
  */
 async function ensureAndroidChannel() {
   if (Platform.OS !== "android") return;
@@ -36,45 +36,21 @@ async function ensureAndroidChannel() {
   });
 }
 
-const isExpoGo = Constants.appOwnership === "expo";
-
-if (!isExpoGo) {
-  try {
-    const messaging = require("@react-native-firebase/messaging").default;
-
-    messaging().setBackgroundMessageHandler(async (remoteMessage) => {
-      // ✅ If OS already shows it, do nothing
-      if (remoteMessage?.notification) return;
-
-      const data = remoteMessage?.data || {};
-
-      await ensureAndroidChannel();
-
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: data.title || "Notification",
-          body: data.body || data.message || "",
-          data,
-          sound: "default",
-        },
-        trigger: null,
-      });
-    });
-
-    console.log("✅ Firebase background handler registered");
-  } catch (err) {
-    console.log("⚠️ Firebase messaging not available:", err?.message || err);
-  }
-}
+// Ensure channel on app start
+ensureAndroidChannel();
 
 function Root() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <DataProviderFuncComp>
-        <NavigationContainer ref={navigationRef}>
-          <App />
-        </NavigationContainer>
-      </DataProviderFuncComp>
+      <SafeAreaProvider>
+        <SafeAreaView style={{ flex: 1 }}>
+          <DataProviderFuncComp>
+            <NavigationContainer ref={navigationRef}>
+              <App />
+            </NavigationContainer>
+          </DataProviderFuncComp>
+        </SafeAreaView>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
